@@ -1,0 +1,26 @@
+[
+  {
+    "query_text": "When can I talk to someone from support?",
+    "retrieved_response": "Our support team is available from 9 AM to 5 PM, Monday to Friday.",
+    "timestamp": "2026-04-07T01:41:08Z",
+    "confidence_score": 0.841082
+  },
+  {
+    "query_text": "When can I talk to someone from support?",
+    "retrieved_response": "Our support team is available from 9 AM to 5 PM, Monday to Friday.",
+    "timestamp": "2026-04-07T01:46:12Z",
+    "confidence_score": 0.841041
+  },
+  {
+    "query_text": "Can I update the card used for billing?",
+    "retrieved_response": "Yes, you can update your billing card by accessing your account settings on our platform.",
+    "timestamp": "2026-04-07T01:46:14Z",
+    "confidence_score": 0.647587
+  },
+  {
+    "query_text": "Do you sell event tickets for concerts?",
+    "retrieved_response": "We do not sell event tickets for concerts.",
+    "timestamp": "2026-04-07T01:46:17Z",
+    "confidence_score": 0.532032
+  }
+]

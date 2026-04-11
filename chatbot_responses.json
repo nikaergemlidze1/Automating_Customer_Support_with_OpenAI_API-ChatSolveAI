@@ -1,0 +1,116 @@
+[
+  {
+    "query_text": "What's the process for resetting my password?",
+    "retrieved_response": "You can reset your password by clicking 'Forgot Password' on the login page.",
+    "confidence_score": 0.95,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "When is your support team available?",
+    "retrieved_response": "Our support team is available from 9 AM to 5 PM, Monday to Friday.",
+    "confidence_score": 0.9,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "How can I view my past bills?",
+    "retrieved_response": "You can find your billing history under 'Account Settings' > 'Billing'.",
+    "confidence_score": 0.92,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "What's the way to change my payment info?",
+    "retrieved_response": "Go to 'Account Settings' > 'Billing' and select 'Update Payment Method'.",
+    "confidence_score": 0.91,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Can I request a refund?",
+    "retrieved_response": "Yes, refunds are available within 30 days of purchase if you meet our refund policy criteria.",
+    "confidence_score": 0.88,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Help! I can't access my account.",
+    "retrieved_response": "To unlock your account, follow the instructions in the email we sent or contact support.",
+    "confidence_score": 0.94,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Do you have an app I can download?",
+    "retrieved_response": "Yes! Our mobile app is available for both iOS and Android.",
+    "confidence_score": 0.89,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "What are the steps to cancel my plan?",
+    "retrieved_response": "You can cancel your subscription under 'Account Settings' > 'Subscription' > 'Cancel'.",
+    "confidence_score": 0.93,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "How do I update my contact email?",
+    "retrieved_response": "Yes, go to 'Profile Settings' and update your email address.",
+    "confidence_score": 0.87,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "What's the recommended internet speed?",
+    "retrieved_response": "We recommend at least a 10 Mbps connection for the best experience.",
+    "confidence_score": 0.85,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Are there any student deals available?",
+    "retrieved_response": "Yes! We offer a 20% discount for students with a valid student ID.",
+    "confidence_score": 0.86,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "What's the best way to reach tech support?",
+    "retrieved_response": "You can contact technical support via our live chat or email at support@example.com.",
+    "confidence_score": 0.92,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Will I be notified if I use too much storage?",
+    "retrieved_response": "You'll need to upgrade your plan or remove files to free up space.",
+    "confidence_score": 0.84,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Is it possible to recover deleted documents?",
+    "retrieved_response": "Deleted files are kept in the Trash for 30 days before being permanently removed.",
+    "confidence_score": 0.89,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Do you use encryption to protect data?",
+    "retrieved_response": "Yes, we use end-to-end encryption and industry-standard security practices.",
+    "confidence_score": 0.93,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Where do I turn on two-step verification?",
+    "retrieved_response": "Go to 'Security Settings' and enable two-factor authentication.",
+    "confidence_score": 0.95,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Is there a way to add family to my subscription?",
+    "retrieved_response": "Yes, we offer a family plan that allows up to 5 users.",
+    "confidence_score": 0.9,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "Can I try your service before paying?",
+    "retrieved_response": "Yes, we offer a 14-day free trial with full access to all features.",
+    "confidence_score": 0.91,
+    "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "What's the procedure to report an issue?",
+    "retrieved_response": "Please report any bugs through our 'Feedback' section or email support.",
+    "confidence_score": 0.88,
+    "timestamp": "2025-04-18T13:38:39Z"
+  }
+]

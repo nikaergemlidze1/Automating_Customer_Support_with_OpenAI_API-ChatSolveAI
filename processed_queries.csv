@@ -1,0 +1,502 @@
+query_id,query_text
+1,How can I contact customer support?
+2,can i purchase a gift card
+3,"My order hasn't arrived yet, what should I do?"
+4,How do I reset my password?
+5,how do i track my order
+6,how can i update my account details
+7,Can I change my email address in my account settings?
+8,"My order hasn't arrived yet, what should I do?"
+9,Can I purchase a gift card?
+10,what is the estimated delivery time for orders
+11,What are the terms and conditions for returns?
+12,How do I reset my password?
+13,What is your refund policy?
+14,what is your refund policy
+15,can i change my email address in my account settings
+16,Can I purchase a gift card?
+17,can i change my shipping address after placing an order
+18,how can i update my account details
+19,Are there any discounts for first-time customers?
+20,Are there any discounts for first-time customers?
+21,are my payment details secure
+22,What payment methods do you accept?
+23,How can I update my account details?
+24,How do I redeem a promo code?
+25,Can I change my email address in my account settings?
+26,"i received a damaged product, how can i get a replacement"
+27,What should I do if my payment fails?
+28,How can I contact customer support?
+29,can i purchase a gift card
+30,what is the estimated delivery time for orders
+31,are my payment details secure
+32,"My order hasn't arrived yet, what should I do?"
+33,What is your refund policy?
+34,Can I change my shipping address after placing an order?
+35,How do I redeem a promo code?
+36,How do I reset my password?
+37,"my order hasn't arrived yet, what should i do"
+38,do you offer gift wrapping services
+39,how can i contact customer support
+40,How do I track my order?
+41,What payment methods do you accept?
+42,"I received a damaged product, how can I get a replacement?"
+43,what is your refund policy
+44,"I received a damaged product, how can I get a replacement?"
+45,Can I change my shipping address after placing an order?
+46,what are the terms and conditions for returns
+47,do you offer gift wrapping services
+48,what are the terms and conditions for returns
+49,How can I update my account details?
+50,Are there any discounts for first-time customers?
+51,Are my payment details secure?
+52,Can I cancel my order after it's been shipped?
+53,Do you offer international shipping?
+54,How do I track my order?
+55,How can I update my account details?
+56,How do I track my order?
+57,what payment methods do you accept
+58,Are there any discounts for first-time customers?
+59,how can i update my account details
+60,What is the estimated delivery time for orders?
+61,What should I do if my payment fails?
+62,What payment methods do you accept?
+63,Can I change my shipping address after placing an order?
+64,What payment methods do you accept?
+65,do you offer international shipping
+66,How do I redeem a promo code?
+67,what should i do if my payment fails
+68,how can i update my account details
+69,can i change my shipping address after placing an order
+70,how do i track my order
+71,How can I update my account details?
+72,how do i redeem a promo code
+73,what are the terms and conditions for returns
+74,Are my payment details secure?
+75,"My order hasn't arrived yet, what should I do?"
+76,How do I reset my password?
+77,Do you offer gift wrapping services?
+78,Do you offer gift wrapping services?
+79,Are there any discounts for first-time customers?
+80,How do I redeem a promo code?
+81,Can I cancel my order after it's been shipped?
+82,Can I change my email address in my account settings?
+83,how can i update my account details
+84,How do I redeem a promo code?
+85,What is the estimated delivery time for orders?
+86,How do I redeem a promo code?
+87,Are there any discounts for first-time customers?
+88,How can I contact customer support?
+89,Can I change my shipping address after placing an order?
+90,How can I contact customer support?
+91,can i change my email address in my account settings
+92,what is the estimated delivery time for orders
+93,how can i contact customer support
+94,how can i update my account details
+95,What is the estimated delivery time for orders?
+96,How do I reset my password?
+97,What is the estimated delivery time for orders?
+98,Do you offer international shipping?
+99,What is your refund policy?
+100,how do i redeem a promo code
+101,Can I change my shipping address after placing an order?
+102,what are the terms and conditions for returns
+103,Are my payment details secure?
+104,can i change my email address in my account settings
+105,What is your refund policy?
+106,What is your refund policy?
+107,How can I contact customer support?
+108,what is the estimated delivery time for orders
+109,Are there any discounts for first-time customers?
+110,can i purchase a gift card
+111,What is the estimated delivery time for orders?
+112,how can i update my account details
+113,How can I update my account details?
+114,Can I change my email address in my account settings?
+115,how do i redeem a promo code
+116,what is your refund policy
+117,Are my payment details secure?
+118,Do you offer international shipping?
+119,how do i redeem a promo code
+120,are my payment details secure
+121,can i cancel my order after it's been shipped
+122,Do you offer international shipping?
+123,What payment methods do you accept?
+124,Do you offer gift wrapping services?
+125,Can I cancel my order after it's been shipped?
+126,Can I purchase a gift card?
+127,Can I change my shipping address after placing an order?
+128,Can I change my shipping address after placing an order?
+129,Can I purchase a gift card?
+130,what is the estimated delivery time for orders
+131,How do I redeem a promo code?
+132,What is your refund policy?
+133,How do I reset my password?
+134,Are my payment details secure?
+135,How can I contact customer support?
+136,can i cancel my order after it's been shipped
+137,what should i do if my payment fails
+138,"my order hasn't arrived yet, what should i do"
+139,can i purchase a gift card
+140,can i change my shipping address after placing an order
+141,What are the terms and conditions for returns?
+142,How can I update my account details?
+143,"My order hasn't arrived yet, what should I do?"
+144,What should I do if my payment fails?
+145,How can I contact customer support?
+146,what is your refund policy
+147,Are my payment details secure?
+148,What should I do if my payment fails?
+149,What are the terms and conditions for returns?
+150,Are there any discounts for first-time customers?
+151,what payment methods do you accept
+152,Do you offer gift wrapping services?
+153,Are my payment details secure?
+154,Are my payment details secure?
+155,Do you offer international shipping?
+156,Do you offer gift wrapping services?
+157,What is your refund policy?
+158,What should I do if my payment fails?
+159,How can I contact customer support?
+160,can i purchase a gift card
+161,Can I purchase a gift card?
+162,Are my payment details secure?
+163,how do i track my order
+164,Can I cancel my order after it's been shipped?
+165,what payment methods do you accept
+166,"I received a damaged product, how can I get a replacement?"
+167,how do i reset my password
+168,Can I change my email address in my account settings?
+169,what are the terms and conditions for returns
+170,Can I purchase a gift card?
+171,Do you offer international shipping?
+172,Do you offer international shipping?
+173,Can I change my email address in my account settings?
+174,How do I track my order?
+175,Can I change my shipping address after placing an order?
+176,How do I track my order?
+177,how do i reset my password
+178,how do i track my order
+179,are my payment details secure
+180,Can I change my email address in my account settings?
+181,What are the terms and conditions for returns?
+182,Are there any discounts for first-time customers?
+183,How can I contact customer support?
+184,how do i reset my password
+185,"I received a damaged product, how can I get a replacement?"
+186,Do you offer international shipping?
+187,are there any discounts for first-time customers
+188,Are my payment details secure?
+189,How can I contact customer support?
+190,can i change my shipping address after placing an order
+191,How do I reset my password?
+192,are my payment details secure
+193,what are the terms and conditions for returns
+194,do you offer gift wrapping services
+195,What is the estimated delivery time for orders?
+196,How do I redeem a promo code?
+197,are there any discounts for first-time customers
+198,How do I reset my password?
+199,What are the terms and conditions for returns?
+200,Do you offer international shipping?
+201,"I received a damaged product, how can I get a replacement?"
+202,How do I redeem a promo code?
+203,What are the terms and conditions for returns?
+204,Can I purchase a gift card?
+205,How can I update my account details?
+206,how do i reset my password
+207,what payment methods do you accept
+208,Can I cancel my order after it's been shipped?
+209,How do I track my order?
+210,how do i reset my password
+211,What is your refund policy?
+212,"I received a damaged product, how can I get a replacement?"
+213,Can I cancel my order after it's been shipped?
+214,How can I contact customer support?
+215,How do I reset my password?
+216,do you offer gift wrapping services
+217,Can I change my shipping address after placing an order?
+218,do you offer international shipping
+219,"I received a damaged product, how can I get a replacement?"
+220,can i change my shipping address after placing an order
+221,Are my payment details secure?
+222,are there any discounts for first-time customers
+223,Do you offer gift wrapping services?
+224,Can I cancel my order after it's been shipped?
+225,"My order hasn't arrived yet, what should I do?"
+226,How can I update my account details?
+227,How can I contact customer support?
+228,Do you offer international shipping?
+229,Can I change my shipping address after placing an order?
+230,"I received a damaged product, how can I get a replacement?"
+231,Can I change my shipping address after placing an order?
+232,what is your refund policy
+233,How do I reset my password?
+234,How can I update my account details?
+235,What should I do if my payment fails?
+236,Can I cancel my order after it's been shipped?
+237,How can I update my account details?
+238,what should i do if my payment fails
+239,are there any discounts for first-time customers
+240,can i change my shipping address after placing an order
+241,Do you offer gift wrapping services?
+242,What payment methods do you accept?
+243,do you offer international shipping
+244,"My order hasn't arrived yet, what should I do?"
+245,Can I change my email address in my account settings?
+246,How do I redeem a promo code?
+247,are there any discounts for first-time customers
+248,can i change my email address in my account settings
+249,Do you offer international shipping?
+250,can i purchase a gift card
+251,how can i contact customer support
+252,Are there any discounts for first-time customers?
+253,What is your refund policy?
+254,How do I reset my password?
+255,What payment methods do you accept?
+256,"My order hasn't arrived yet, what should I do?"
+257,Can I change my email address in my account settings?
+258,are there any discounts for first-time customers
+259,can i change my email address in my account settings
+260,"I received a damaged product, how can I get a replacement?"
+261,can i cancel my order after it's been shipped
+262,How do I track my order?
+263,What payment methods do you accept?
+264,how can i contact customer support
+265,What is the estimated delivery time for orders?
+266,"my order hasn't arrived yet, what should i do"
+267,Do you offer international shipping?
+268,can i change my email address in my account settings
+269,do you offer gift wrapping services
+270,How do I redeem a promo code?
+271,Are there any discounts for first-time customers?
+272,Are there any discounts for first-time customers?
+273,how do i reset my password
+274,Do you offer international shipping?
+275,How do I redeem a promo code?
+276,are there any discounts for first-time customers
+277,"my order hasn't arrived yet, what should i do"
+278,How do I reset my password?
+279,Can I change my email address in my account settings?
+280,how can i contact customer support
+281,What are the terms and conditions for returns?
+282,what payment methods do you accept
+283,Do you offer international shipping?
+284,how can i contact customer support
+285,are there any discounts for first-time customers
+286,Can I change my email address in my account settings?
+287,"my order hasn't arrived yet, what should i do"
+288,Are there any discounts for first-time customers?
+289,Can I purchase a gift card?
+290,how do i redeem a promo code
+291,can i cancel my order after it's been shipped
+292,Are there any discounts for first-time customers?
+293,What is the estimated delivery time for orders?
+294,"I received a damaged product, how can I get a replacement?"
+295,what is the estimated delivery time for orders
+296,How can I contact customer support?
+297,how do i redeem a promo code
+298,Do you offer gift wrapping services?
+299,can i purchase a gift card
+300,how do i track my order
+301,what are the terms and conditions for returns
+302,"my order hasn't arrived yet, what should i do"
+303,Do you offer international shipping?
+304,Are my payment details secure?
+305,How do I track my order?
+306,What payment methods do you accept?
+307,How can I contact customer support?
+308,can i change my shipping address after placing an order
+309,can i purchase a gift card
+310,What payment methods do you accept?
+311,How can I contact customer support?
+312,What is the estimated delivery time for orders?
+313,Can I change my email address in my account settings?
+314,can i purchase a gift card
+315,Do you offer gift wrapping services?
+316,Are there any discounts for first-time customers?
+317,what payment methods do you accept
+318,Can I change my email address in my account settings?
+319,What is your refund policy?
+320,How do I redeem a promo code?
+321,how do i track my order
+322,do you offer international shipping
+323,Do you offer international shipping?
+324,What is your refund policy?
+325,"My order hasn't arrived yet, what should I do?"
+326,Can I change my shipping address after placing an order?
+327,"I received a damaged product, how can I get a replacement?"
+328,How can I contact customer support?
+329,what is the estimated delivery time for orders
+330,are there any discounts for first-time customers
+331,How do I reset my password?
+332,Can I cancel my order after it's been shipped?
+333,How do I reset my password?
+334,What is your refund policy?
+335,Can I change my email address in my account settings?
+336,How do I reset my password?
+337,What payment methods do you accept?
+338,"I received a damaged product, how can I get a replacement?"
+339,how do i redeem a promo code
+340,Do you offer gift wrapping services?
+341,how do i redeem a promo code
+342,How do I redeem a promo code?
+343,how do i redeem a promo code
+344,"my order hasn't arrived yet, what should i do"
+345,How do I redeem a promo code?
+346,What is your refund policy?
+347,Are there any discounts for first-time customers?
+348,How do I track my order?
+349,How do I reset my password?
+350,What are the terms and conditions for returns?
+351,What is the estimated delivery time for orders?
+352,What payment methods do you accept?
+353,"I received a damaged product, how can I get a replacement?"
+354,What is the estimated delivery time for orders?
+355,can i change my email address in my account settings
+356,Can I purchase a gift card?
+357,What are the terms and conditions for returns?
+358,can i change my email address in my account settings
+359,what payment methods do you accept
+360,what should i do if my payment fails
+361,What is the estimated delivery time for orders?
+362,How do I track my order?
+363,what should i do if my payment fails
+364,What should I do if my payment fails?
+365,What payment methods do you accept?
+366,Do you offer international shipping?
+367,"I received a damaged product, how can I get a replacement?"
+368,Do you offer gift wrapping services?
+369,what is your refund policy
+370,how do i reset my password
+371,Can I purchase a gift card?
+372,Can I change my email address in my account settings?
+373,do you offer gift wrapping services
+374,Can I cancel my order after it's been shipped?
+375,what is the estimated delivery time for orders
+376,Can I change my email address in my account settings?
+377,How can I contact customer support?
+378,are my payment details secure
+379,Do you offer gift wrapping services?
+380,are there any discounts for first-time customers
+381,what should i do if my payment fails
+382,Can I cancel my order after it's been shipped?
+383,How do I reset my password?
+384,what should i do if my payment fails
+385,What payment methods do you accept?
+386,how can i contact customer support
+387,can i purchase a gift card
+388,How can I contact customer support?
+389,Do you offer international shipping?
+390,how can i contact customer support
+391,How can I contact customer support?
+392,Are my payment details secure?
+393,can i purchase a gift card
+394,How can I contact customer support?
+395,What should I do if my payment fails?
+396,can i change my shipping address after placing an order
+397,how do i redeem a promo code
+398,how can i update my account details
+399,Are my payment details secure?
+400,what payment methods do you accept
+401,Are my payment details secure?
+402,are there any discounts for first-time customers
+403,Can I change my shipping address after placing an order?
+404,How do I reset my password?
+405,how do i redeem a promo code
+406,What is your refund policy?
+407,How do I track my order?
+408,are there any discounts for first-time customers
+409,How do I redeem a promo code?
+410,What should I do if my payment fails?
+411,What is your refund policy?
+412,Can I cancel my order after it's been shipped?
+413,How do I track my order?
+414,are my payment details secure
+415,how do i reset my password
+416,How do I redeem a promo code?
+417,"my order hasn't arrived yet, what should i do"
+418,what should i do if my payment fails
+419,What is your refund policy?
+420,Can I change my shipping address after placing an order?
+421,What are the terms and conditions for returns?
+422,Do you offer gift wrapping services?
+423,do you offer gift wrapping services
+424,Can I purchase a gift card?
+425,How can I update my account details?
+426,What are the terms and conditions for returns?
+427,what should i do if my payment fails
+428,Do you offer gift wrapping services?
+429,How do I redeem a promo code?
+430,Can I cancel my order after it's been shipped?
+431,Do you offer gift wrapping services?
+432,Can I cancel my order after it's been shipped?
+433,What payment methods do you accept?
+434,Can I change my shipping address after placing an order?
+435,Can I purchase a gift card?
+436,What is your refund policy?
+437,Do you offer gift wrapping services?
+438,How can I contact customer support?
+439,Are there any discounts for first-time customers?
+440,what are the terms and conditions for returns
+441,are there any discounts for first-time customers
+442,can i cancel my order after it's been shipped
+443,"I received a damaged product, how can I get a replacement?"
+444,How can I update my account details?
+445,"My order hasn't arrived yet, what should I do?"
+446,can i change my email address in my account settings
+447,How do I reset my password?
+448,do you offer gift wrapping services
+449,are there any discounts for first-time customers
+450,Can I change my shipping address after placing an order?
+451,what are the terms and conditions for returns
+452,How do I redeem a promo code?
+453,Do you offer gift wrapping services?
+454,How can I update my account details?
+455,How can I update my account details?
+456,Can I change my shipping address after placing an order?
+457,what is the estimated delivery time for orders
+458,Can I change my email address in my account settings?
+459,Do you offer international shipping?
+460,What are the terms and conditions for returns?
+461,what payment methods do you accept
+462,can i change my email address in my account settings
+463,What payment methods do you accept?
+464,Can I purchase a gift card?
+465,What is the estimated delivery time for orders?
+466,can i cancel my order after it's been shipped
+467,how do i redeem a promo code
+468,what is your refund policy
+469,do you offer gift wrapping services
+470,Can I cancel my order after it's been shipped?
+471,how can i contact customer support
+472,do you offer gift wrapping services
+473,what payment methods do you accept
+474,Can I change my shipping address after placing an order?
+475,Can I purchase a gift card?
+476,What is the estimated delivery time for orders?
+477,Can I purchase a gift card?
+478,What are the terms and conditions for returns?
+479,What should I do if my payment fails?
+480,How do I track my order?
+481,"my order hasn't arrived yet, what should i do"
+482,Do you offer gift wrapping services?
+483,are there any discounts for first-time customers
+484,Can I purchase a gift card?
+485,Can I purchase a gift card?
+486,do you offer gift wrapping services
+487,how can i contact customer support
+488,how do i redeem a promo code
+489,Do you offer gift wrapping services?
+490,"I received a damaged product, how can I get a replacement?"
+491,How do I track my order?
+492,How do I track my order?
+493,do you offer international shipping
+494,What payment methods do you accept?
+495,can i change my email address in my account settings
+496,Can I purchase a gift card?
+497,Can I cancel my order after it's been shipped?
+498,How do I reset my password?
+499,Do you offer international shipping?
+500,can i change my email address in my account settings
+999,"I forgot how to log into my account, is there a way to regain access?"

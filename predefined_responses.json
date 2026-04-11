@@ -1,0 +1,21 @@
+{
+    "password_reset": "You can reset your password by clicking on 'Forgot Password' at the login page.",
+    "refund_policy": "Our refund policy allows refunds within 30 days of purchase with a valid receipt.",
+    "shipping_change": "Unfortunately, you cannot change the shipping address after placing the order.",
+    "order_tracking": "Track your order by logging into your account and checking the 'Orders' section.",
+    "international_shipping": "Yes, we offer international shipping to select countries.",
+    "customer_support": "You can contact our customer support via email or live chat on our website.",
+    "first_time_discount": "Yes! First-time customers can use code WELCOME10 for 10% off.",
+    "payment_methods": "We accept Visa, MasterCard, PayPal, and Apple Pay.",
+    "damaged_product": "If you received a damaged product, please contact support with images for a replacement.",
+    "order_cancellation": "Orders cannot be canceled after they have been shipped.",
+    "delivery_time": "Delivery times vary by location. Standard shipping takes 5-7 business days.",
+    "gift_wrapping": "Yes, we offer gift wrapping for an additional fee.",
+    "account_update": "You can update your account details in the 'Settings' section of your profile.",
+    "payment_failure": "If your payment fails, try a different card or contact your bank.",
+    "payment_security": "Your payment details are encrypted and secure with our system.",
+    "gift_cards": "Yes, we offer gift cards in various denominations.",
+    "promo_code": "Enter your promo code at checkout to apply the discount.",
+    "return_terms": "Returns are accepted within 30 days with the original receipt and packaging.",
+    "email_change": "To change your email, go to 'Settings' and update your email address."
+}
