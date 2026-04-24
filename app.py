@@ -209,27 +209,45 @@ def api_health() -> bool:
 
 
 def call_chat(query: str) -> dict | None:
-    """Blocking call — returns the full enriched response dict."""
-    try:
-        r = requests.post(
-            f"{API_URL}/chat",
-            json={"session_id": st.session_state.session_id, "query": query},
-            timeout=60,
-        )
-        if r.ok:
-            return r.json()
-        st.error(f"API error {r.status_code}: {r.text[:200]}")
-    except requests.RequestException as e:
-        st.error(f"Network error: {e}")
+    """Blocking call — returns the full enriched response dict.
+
+    Two attempts: HF Spaces free tier sleeps after ~5 min idle, so the first
+    request after a long pause can hit a TCP reset / 503 while the container
+    starts. A single retry with a short pause covers that case cleanly.
+    """
+    last_err = None
+    for attempt in range(2):
+        try:
+            r = requests.post(
+                f"{API_URL}/chat",
+                json={"session_id": st.session_state.session_id, "query": query},
+                timeout=60,
+            )
+            if r.ok:
+                return r.json()
+            # 5xx during cold-start → retry once
+            if 500 <= r.status_code < 600 and attempt == 0:
+                last_err = f"{r.status_code}: {r.text[:120]}"
+                time.sleep(3)
+                continue
+            st.error(f"API error {r.status_code}: {r.text[:200]}")
+            return None
+        except requests.RequestException as e:
+            last_err = str(e)
+            if attempt == 0:
+                time.sleep(3)
+                continue
+    st.error(f"Network error after retry: {last_err}")
     return None
 
 
 def call_suggest(last_answer: str) -> list[str]:
+    """Best-effort follow-up suggestions; failures are silent (chips just don't show)."""
     try:
         r = requests.post(
             f"{API_URL}/suggest",
             json={"last_answer": last_answer, "n": 3},
-            timeout=20,
+            timeout=25,
         )
         if r.ok:
             return r.json().get("suggestions", [])
@@ -255,26 +273,53 @@ def call_feedback(query: str, answer: str, rating: str) -> bool:
         return False
 
 
+@st.cache_data(ttl=20)
 def fetch_analytics() -> dict | None:
+    """Sidebar live analytics. Cached briefly so fast reruns don't hammer the API."""
     try:
-        r = requests.get(f"{API_URL}/analytics", timeout=5)
+        r = requests.get(f"{API_URL}/analytics", timeout=8)
         return r.json() if r.ok else None
     except Exception:
         return None
 
 
-def reset_session():
-    sid = st.session_state.session_id
-    try:
-        requests.delete(f"{API_URL}/chat/session/{sid}", timeout=5)
-    except Exception:
-        pass
+def _purge_chat_state():
+    """
+    Clear every Streamlit-side state key tied to the conversation, including
+    feedback ratings (``fb_<idx>``) and follow-up button keys that would
+    otherwise leak into a fresh session and pre-mark new replies as rated.
+    """
+    stale_prefixes = ("fb_", "up_", "down_", "chip_", "followup_")
+    for key in list(st.session_state.keys()):
+        if isinstance(key, str) and key.startswith(stale_prefixes):
+            del st.session_state[key]
     st.session_state.session_id    = str(uuid.uuid4())
     st.session_state.messages      = []
     st.session_state.last_sources  = []
     st.session_state.last_meta     = {}
     st.session_state.followups     = []
     st.session_state.pending_query = None
+
+
+def reset_session():
+    """
+    Reset client-side conversation. The DELETE call is best-effort — even if
+    the backend is cold/slow, the local UI must reset immediately so the
+    user is not stuck looking at the old transcript.
+    """
+    sid = st.session_state.session_id
+    try:
+        # Short timeout so a sleeping HF Space cannot freeze the button click.
+        requests.delete(f"{API_URL}/chat/session/{sid}", timeout=3)
+    except Exception:
+        pass
+    _purge_chat_state()
+    # Drop any cached analytics / health so the sidebar refreshes too.
+    try:
+        fetch_analytics.clear()
+        api_health.clear()
+    except Exception:
+        pass
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -437,12 +482,21 @@ with st.sidebar:
     # Controls
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🗑 New chat", use_container_width=True):
+        if st.button("🗑 New chat", use_container_width=True,
+                     help="Clears the local conversation and starts a fresh session."):
             reset_session()
             st.rerun()
     with col2:
-        if st.button("🔄 Refresh", use_container_width=True):
-            api_health.clear()
+        if st.button("🔄 Refresh", use_container_width=True,
+                     help="Re-checks the API and reloads sidebar analytics."):
+            try:
+                api_health.clear()
+                fetch_analytics.clear()
+            except Exception:
+                pass
+            # Drop any orphaned pending query so a cold-start fail doesn't
+            # leave the UI stuck submitting forever.
+            st.session_state.pending_query = None
             st.rerun()
 
     # Export
