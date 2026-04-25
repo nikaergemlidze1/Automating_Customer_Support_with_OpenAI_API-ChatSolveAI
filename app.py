@@ -197,6 +197,8 @@ _init_state()
 
 
 # ── API helpers ───────────────────────────────────────────────────────────────
+# (defined before _process_reset_signal because it touches fetch_analytics
+# and api_health which are declared below.)
 
 @st.cache_data(ttl=15)
 def api_health() -> bool:
@@ -287,21 +289,27 @@ def fetch_analytics() -> dict | None:
         return None
 
 
+_PRESERVE_KEYS = {"btn_new_chat", "btn_refresh"}
+
+
 def _purge_chat_state():
     """
-    Clear every Streamlit-side state key tied to the conversation, including
-    feedback ratings (``fb_<idx>``), follow-up button keys, and any legacy
-    ``followups`` global so a fresh session never inherits old chips.
+    Nuke every conversation-related session_state key. We literally walk the
+    full state and delete anything that isn't a sidebar button widget, then
+    re-seed the defaults. This is the most reliable way to guarantee that
+    a "New chat" click cannot leave behind ghost messages, ghost feedback
+    ratings, or ghost widget click-state on any Streamlit version.
 
-    Bumps ``conv_id`` so all chat-area widget keys change between renders —
-    this forces Streamlit to drop the old DOM positions instead of trying to
-    diff them, which avoids ghost messages surviving a "New chat" click.
+    Bumps ``conv_id`` so chat-area widget keys differ between renders —
+    Streamlit then allocates fresh widgets instead of trying to diff old
+    assistant messages into the new (empty) layout.
     """
-    stale_prefixes = ("fb_", "up_", "down_", "chip_", "followup_", "fu_")
     for key in list(st.session_state.keys()):
-        if isinstance(key, str) and key.startswith(stale_prefixes):
-            del st.session_state[key]
-    st.session_state.pop("followups", None)  # legacy global, now per-message
+        if isinstance(key, str) and key not in _PRESERVE_KEYS:
+            try:
+                del st.session_state[key]
+            except KeyError:
+                pass
     st.session_state.session_id    = str(uuid.uuid4())
     st.session_state.conv_id       = str(uuid.uuid4())[:8]
     st.session_state.messages      = []
@@ -322,20 +330,32 @@ def _fire_and_forget_delete(sid: str) -> None:
 
 def reset_session():
     """
-    Reset client-side conversation. Local state is cleared FIRST and the
-    server-side DELETE is fired on a background thread — the button click
-    is now instant, so a sleeping HF Space cannot freeze the UI even for a
-    second. Server-side LRU reclaims the slot regardless.
-    Streamlit auto-reruns when this is used as a button ``on_click``.
+    Reset client-side conversation. Just sets a flag — the actual purge
+    runs at the TOP of the next script execution, before anything renders.
+    This guarantees no half-updated frame can ever be visible: by the time
+    a single widget paints in the new run, ``messages`` is already ``[]``.
     """
-    sid = st.session_state.session_id
+    st.session_state["_reset_pending"] = True
+
+
+def _process_reset_signal():
+    """
+    Called at the very top of the script, after _init_state. If the flag is
+    set, wipe state, clear caches, and fire the server DELETE — all before
+    a single chip / message / widget has had a chance to render.
+    """
+    if not st.session_state.get("_reset_pending"):
+        return
+    sid = st.session_state.get("session_id", "")
     _purge_chat_state()
     try:
         fetch_analytics.clear()
         api_health.clear()
     except Exception:
         pass
-    _fire_and_forget_delete(sid)
+    if sid:
+        _fire_and_forget_delete(sid)
+    st.session_state["_reset_pending"] = False
 
 
 def _refresh_ui():
@@ -357,6 +377,12 @@ def _queue_query(query: str):
     if not query:
         return
     st.session_state.pending_query = query
+
+
+# Process any pending "New chat" signal NOW, before a single chat-area
+# widget renders. Placement matters: must be after fetch_analytics +
+# api_health are declared (so .clear() works) and before sidebar/main UI.
+_process_reset_signal()
 
 
 def _record_feedback(idx: int, rating: str):
