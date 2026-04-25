@@ -308,6 +308,13 @@ def _do_full_reset():
     key (including any widget click-state we forgot about), then re-seeds
     just the session defaults. Server DELETE fires on a daemon thread so
     a cold backend cannot freeze the click.
+
+    Also bumps a query-param (``?c=<uuid>``). On Streamlit Cloud the URL
+    change is treated as a fresh navigation, which makes the renderer
+    fully tear down and re-build the DOM rather than diffing against the
+    previous (stale) frame. Without this the user could occasionally
+    still see the previous transcript bleed through after a follow-up
+    click — that has been resistant to every state-clear approach.
     """
     sid = st.session_state.get("session_id", "")
     try:
@@ -317,6 +324,14 @@ def _do_full_reset():
         pass
     st.session_state.clear()
     _init_state()
+    try:
+        st.query_params["c"] = str(uuid.uuid4())[:8]
+    except Exception:
+        # Older Streamlit versions: experimental_set_query_params fallback
+        try:
+            st.experimental_set_query_params(c=str(uuid.uuid4())[:8])
+        except Exception:
+            pass
     if sid:
         _fire_and_forget_delete(sid)
 
