@@ -23,7 +23,6 @@ from datetime import datetime
 
 import requests
 import streamlit as st
-import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -559,16 +558,7 @@ with st.sidebar:
             help="Clears the conversation and starts a fresh session.",
         ):
             _do_full_reset()
-            # Force a hard browser reload. On Streamlit Cloud, st.rerun()
-            # alone sometimes leaves stale DOM children visible on top of
-            # the new (empty) frame. A full page reload guarantees the
-            # browser drops every element from the old conversation —
-            # this is a one-shot navigation, not a polling reload.
-            components.html(
-                "<script>window.parent.location.reload();</script>",
-                height=0,
-            )
-            st.stop()
+            st.rerun()
     with col2:
         if st.button(
             "🔄 Refresh",
