@@ -324,10 +324,10 @@ def _do_full_reset():
 def _process_hard_reset():
     """
     Run at the very top of the script (after _init_state). If the flag
-    is set: wipe state, fire the server DELETE on a daemon thread, and
-    inject a one-shot iframe that triggers ``window.parent.location.reload()``.
-    ``st.stop()`` halts the rest of the run so nothing else paints
-    between the wipe and the reload.
+    is set: wipe all conversation state and let the script continue so
+    chat_holder re-renders with messages=[] — atomically replacing the
+    old chat content (messages, follow-up chips) with the example chips.
+    No browser reload; pure in-place Streamlit reset.
     """
     if not st.session_state.pop("_hard_reset_pending", False):
         return
@@ -361,24 +361,6 @@ def _process_hard_reset():
     # Server-side cleanup on a daemon thread (instant, doesn't block).
     if old_sid:
         _fire_and_forget_delete(old_sid)
-
-    # Best-effort browser navigation — clears any stale DOM Streamlit
-    # left behind. If the iframe is cross-origin-sandboxed (e.g. HF Spaces),
-    # window.parent.location.reload() silently fails, but the script
-    # continues below and re-renders chat_holder with the cleared state,
-    # which is sufficient.
-    components.html(
-        """
-        <style>html,body{margin:0;padding:0;height:0;overflow:hidden;}</style>
-        <script>
-          try { window.parent.location.reload(); } catch(e) {}
-        </script>
-        """,
-        height=0,
-    )
-    # Do NOT call st.stop() — let the script finish so chat_holder
-    # re-renders with messages=[] and atomically replaces the old content
-    # (including follow-up chips). st.stop() here would leave stale DOM.
 
 
 def _process_reset_signal():
