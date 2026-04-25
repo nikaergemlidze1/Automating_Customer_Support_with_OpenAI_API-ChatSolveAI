@@ -289,33 +289,6 @@ def fetch_analytics() -> dict | None:
         return None
 
 
-_PRESERVE_KEYS = {"btn_new_chat", "btn_refresh"}
-
-
-def _purge_chat_state():
-    """
-    Nuke every conversation-related session_state key. We literally walk the
-    full state and delete anything that isn't a sidebar button widget, then
-    re-seed the defaults. This is the most reliable way to guarantee that
-    a "New chat" click cannot leave behind ghost messages, ghost feedback
-    ratings, or ghost widget click-state on any Streamlit version.
-
-    Bumps ``conv_id`` so chat-area widget keys differ between renders —
-    Streamlit then allocates fresh widgets instead of trying to diff old
-    assistant messages into the new (empty) layout.
-    """
-    for key in list(st.session_state.keys()):
-        if isinstance(key, str) and key not in _PRESERVE_KEYS:
-            try:
-                del st.session_state[key]
-            except KeyError:
-                pass
-    st.session_state.session_id    = str(uuid.uuid4())
-    st.session_state.conv_id       = str(uuid.uuid4())[:8]
-    st.session_state.messages      = []
-    st.session_state.last_sources  = []
-    st.session_state.last_meta     = {}
-    st.session_state.pending_query = None
 
 
 def _fire_and_forget_delete(sid: str) -> None:
@@ -328,34 +301,30 @@ def _fire_and_forget_delete(sid: str) -> None:
     threading.Thread(target=_go, daemon=True).start()
 
 
-def reset_session():
+def _do_full_reset():
     """
-    Reset client-side conversation. Just sets a flag — the actual purge
-    runs at the TOP of the next script execution, before anything renders.
-    This guarantees no half-updated frame can ever be visible: by the time
-    a single widget paints in the new run, ``messages`` is already ``[]``.
+    Nuclear reset, called inline from the New chat button handler.
+    Uses Streamlit's official ``st.session_state.clear()`` to wipe every
+    key (including any widget click-state we forgot about), then re-seeds
+    just the session defaults. Server DELETE fires on a daemon thread so
+    a cold backend cannot freeze the click.
     """
-    st.session_state["_reset_pending"] = True
-
-
-def _process_reset_signal():
-    """
-    Called at the very top of the script, after _init_state. If the flag is
-    set, wipe state, clear caches, and fire the server DELETE — all before
-    a single chip / message / widget has had a chance to render.
-    """
-    if not st.session_state.get("_reset_pending"):
-        return
     sid = st.session_state.get("session_id", "")
-    _purge_chat_state()
     try:
         fetch_analytics.clear()
         api_health.clear()
     except Exception:
         pass
+    st.session_state.clear()
+    _init_state()
     if sid:
         _fire_and_forget_delete(sid)
-    st.session_state["_reset_pending"] = False
+
+
+def _process_reset_signal():
+    """Compatibility hook — older callbacks set ``_reset_pending`` to True."""
+    if st.session_state.pop("_reset_pending", False):
+        _do_full_reset()
 
 
 def _refresh_ui():
@@ -574,25 +543,31 @@ with st.sidebar:
                     st.markdown(f"- {item['question'][:50]}… `×{item['count']}`")
         st.divider()
 
-    # Controls — use on_click callbacks so Streamlit handles the rerun itself
-    # (avoids the "click twice before it takes effect" class of bugs).
+    # Controls. New chat uses direct-handler + st.rerun() for maximum
+    # determinism: clear state THIS script run, then explicitly re-execute
+    # so the next render starts from a clean slate. Bypassing on_click here
+    # is intentional — on Streamlit Cloud the on_click → auto-rerun path
+    # would sometimes paint the new (empty) frame on top of the old DOM,
+    # leaving ghost messages visible.
     col1, col2 = st.columns(2)
     with col1:
-        st.button(
+        if st.button(
             "🗑 New chat",
             key="btn_new_chat",
             use_container_width=True,
-            on_click=reset_session,
             help="Clears the conversation and starts a fresh session.",
-        )
+        ):
+            _do_full_reset()
+            st.rerun()
     with col2:
-        st.button(
+        if st.button(
             "🔄 Refresh",
             key="btn_refresh",
             use_container_width=True,
-            on_click=_refresh_ui,
             help="Re-checks the API and reloads sidebar analytics.",
-        )
+        ):
+            _refresh_ui()
+            st.rerun()
 
     # Export
     if st.session_state.messages:
