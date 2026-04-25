@@ -635,102 +635,104 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Handle a queued query FIRST — before any other UI renders. If we don't,
-# a chip click sets pending_query → rerun → chip-block runs while messages
-# is still [] (renders chips) → THEN submit_query appends to messages →
-# the history loop also renders. Result: chips + the new Q&A both visible
-# on the same frame, looking exactly like "New chat didn't clear".
-if st.session_state.pending_query:
-    if healthy:
-        q = st.session_state.pending_query
-        st.session_state.pending_query = None
-        submit_query(q)
-    else:
-        # Backend asleep / unreachable — surface it instead of silently
-        # parking the query, and drop it so the user can retry after Refresh.
-        st.warning(
-            "Backend is waking up and didn't answer in time. "
-            "Click **🔄 Refresh** in the sidebar in a few seconds, then retry."
-        )
-        st.session_state.pending_query = None
+# All chat content (pending-query handler, example chips, message
+# history, follow-up chips) renders inside a SINGLE st.empty() slot.
+# This is the most reliable way to make Streamlit treat the chat zone
+# as one swap-out unit — on the next rerun the whole subtree is
+# replaced atomically rather than diffed element-by-element. Without
+# this, Streamlit Cloud has been observed to keep stale chat_message
+# DOM nodes from the previous conversation visible after "New chat".
+chat_holder = st.empty()
 
-
-# Example-question chips (only visible on fresh conversations).
-# Keys carry conv_id so a fresh conversation never inherits widget click-state
-# from a previous one — a leftover click can otherwise fire after rerun.
-if not st.session_state.messages:
-    st.markdown("**👋 Try one of these to get started:**")
-    cols = st.columns(2)
-    _conv = st.session_state.conv_id
-    for i, (emoji, q) in enumerate(EXAMPLE_QUESTIONS):
-        with cols[i % 2]:
-            st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-            st.button(
-                f"{emoji}   {q}",
-                key=f"chip_{_conv}_{i}",
-                use_container_width=True,
-                on_click=_queue_query,
-                args=(q,),
+with chat_holder.container():
+    # 1. Handle a queued query FIRST — before any chip / history render.
+    if st.session_state.pending_query:
+        if healthy:
+            q = st.session_state.pending_query
+            st.session_state.pending_query = None
+            submit_query(q)
+        else:
+            st.warning(
+                "Backend is waking up and didn't answer in time. "
+                "Click **🔄 Refresh** in the sidebar in a few seconds, then retry."
             )
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.session_state.pending_query = None
 
-
-# Render conversation history. All chat-area widget keys carry the current
-# conv_id so a "New chat" click forces Streamlit to allocate fresh widgets
-# rather than trying to reuse the previous conversation's DOM positions.
-last_idx = len(st.session_state.messages) - 1
-conv_id  = st.session_state.conv_id
-for idx, msg in enumerate(st.session_state.messages):
-    avatar = USER_AVATAR if msg["role"] == "user" else ASSISTANT_AVATAR
-    with st.chat_message(msg["role"], avatar=avatar):
-        st.markdown(msg["content"])
-        if msg["role"] == "assistant":
-            render_meta(msg.get("meta", {}))
-            render_sources(msg.get("sources", []))
-
-            # Feedback row — on_click callbacks so one click is enough.
-            fb_key = f"fb_{conv_id}_{idx}"
-            if st.session_state.get(fb_key) is None:
-                c1, c2, _ = st.columns([1, 1, 8])
-                c1.button(
-                    "👍",
-                    key=f"up_{conv_id}_{idx}",
-                    help="Good answer",
-                    on_click=_record_feedback,
-                    args=(idx, "up"),
+    # 2. Example-question chips (only on fresh conversations).
+    if not st.session_state.messages:
+        st.markdown("**👋 Try one of these to get started:**")
+        cols = st.columns(2)
+        _conv = st.session_state.conv_id
+        for i, (emoji, q) in enumerate(EXAMPLE_QUESTIONS):
+            with cols[i % 2]:
+                st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                st.button(
+                    f"{emoji}   {q}",
+                    key=f"chip_{_conv}_{i}",
+                    use_container_width=True,
+                    on_click=_queue_query,
+                    args=(q,),
                 )
-                c2.button(
-                    "👎",
-                    key=f"down_{conv_id}_{idx}",
-                    help="Needs work",
-                    on_click=_record_feedback,
-                    args=(idx, "down"),
-                )
-            else:
-                rating = st.session_state[fb_key]
-                st.caption(f"You rated this answer: {'👍' if rating == 'up' else '👎'}")
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            # Follow-up chips: render ONLY for the latest assistant message,
-            # and ONLY from this message's own stored list. Older assistant
-            # messages keep their data but don't render chips (their chance
-            # is gone — the conversation has moved on).
-            followups = msg.get("followups") or []
-            if idx == last_idx and followups:
-                st.markdown("**💡 Suggested follow-ups**")
-                cols = st.columns(len(followups))
-                for i, q in enumerate(followups):
-                    with cols[i]:
-                        st.markdown('<div class="followup-chip">', unsafe_allow_html=True)
-                        st.button(
-                            q,
-                            key=f"fu_{conv_id}_{idx}_{i}",
-                            on_click=_queue_query,
-                            args=(q,),
-                        )
-                        st.markdown('</div>', unsafe_allow_html=True)
+    # 3. Conversation history. Widget keys carry conv_id so a fresh
+    #    conversation cannot inherit click-state from a previous one.
+    last_idx = len(st.session_state.messages) - 1
+    conv_id  = st.session_state.conv_id
+    for idx, msg in enumerate(st.session_state.messages):
+        avatar = USER_AVATAR if msg["role"] == "user" else ASSISTANT_AVATAR
+        with st.chat_message(msg["role"], avatar=avatar):
+            st.markdown(msg["content"])
+            if msg["role"] == "assistant":
+                render_meta(msg.get("meta", {}))
+                render_sources(msg.get("sources", []))
+
+                # Feedback row — one click thanks to on_click callback.
+                fb_key = f"fb_{conv_id}_{idx}"
+                if st.session_state.get(fb_key) is None:
+                    c1, c2, _ = st.columns([1, 1, 8])
+                    c1.button(
+                        "👍",
+                        key=f"up_{conv_id}_{idx}",
+                        help="Good answer",
+                        on_click=_record_feedback,
+                        args=(idx, "up"),
+                    )
+                    c2.button(
+                        "👎",
+                        key=f"down_{conv_id}_{idx}",
+                        help="Needs work",
+                        on_click=_record_feedback,
+                        args=(idx, "down"),
+                    )
+                else:
+                    rating = st.session_state[fb_key]
+                    st.caption(
+                        f"You rated this answer: {'👍' if rating == 'up' else '👎'}"
+                    )
+
+                # Follow-up chips — only on the latest assistant message.
+                followups = msg.get("followups") or []
+                if idx == last_idx and followups:
+                    st.markdown("**💡 Suggested follow-ups**")
+                    cols = st.columns(len(followups))
+                    for i, q in enumerate(followups):
+                        with cols[i]:
+                            st.markdown(
+                                '<div class="followup-chip">',
+                                unsafe_allow_html=True,
+                            )
+                            st.button(
+                                q,
+                                key=f"fu_{conv_id}_{idx}_{i}",
+                                on_click=_queue_query,
+                                args=(q,),
+                            )
+                            st.markdown('</div>', unsafe_allow_html=True)
 
 
-# Input box (guarded behind health)
+# Input box (guarded behind health). Lives outside the chat holder so
+# the input bar position doesn't jump between renders.
 if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
     if not healthy:
         st.error("Cannot send message — API is not reachable.")
