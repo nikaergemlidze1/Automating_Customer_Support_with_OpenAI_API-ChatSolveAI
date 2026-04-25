@@ -362,21 +362,23 @@ def _process_hard_reset():
     if old_sid:
         _fire_and_forget_delete(old_sid)
 
-    # Force a full browser navigation. The hidden iframe runs the JS
-    # immediately on mount; height=0 + display:none keeps it invisible.
+    # Best-effort browser navigation — clears any stale DOM Streamlit
+    # left behind. If the iframe is cross-origin-sandboxed (e.g. HF Spaces),
+    # window.parent.location.reload() silently fails, but the script
+    # continues below and re-renders chat_holder with the cleared state,
+    # which is sufficient.
     components.html(
         """
         <style>html,body{margin:0;padding:0;height:0;overflow:hidden;}</style>
         <script>
-          // Reload the parent (the actual Streamlit app frame), not the
-          // little iframe this script lives in. cache=true → use bfcache
-          // when possible so the reload is fast.
-          window.parent.location.reload();
+          try { window.parent.location.reload(); } catch(e) {}
         </script>
         """,
         height=0,
     )
-    st.stop()
+    # Do NOT call st.stop() — let the script finish so chat_holder
+    # re-renders with messages=[] and atomically replaces the old content
+    # (including follow-up chips). st.stop() here would leave stale DOM.
 
 
 def _process_reset_signal():
