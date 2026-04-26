@@ -623,6 +623,8 @@ st.markdown(
 chat_holder = st.container(key=f"chatzone_{st.session_state.conv_id}")
 
 with chat_holder:
+    st.write("DEBUG messages:", len(st.session_state.messages),
+         "pending_query:", st.session_state.pending_query)
     # 1. Handle a queued query FIRST — before any chip / history render.
     if st.session_state.pending_query:
         if healthy:
