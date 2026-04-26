@@ -181,7 +181,7 @@ st.markdown("""
 def _init_state():
     defaults = {
         "session_id":   str(uuid.uuid4()),
-        "conv_id":      str(uuid.uuid4())[:8],   # bumps on every "New chat"
+        "conv_id":      str(uuid.uuid4())[:8],
         "messages":     [],
         "last_sources": [],
         "last_meta":    {},
@@ -286,10 +286,11 @@ def _fire_and_forget_delete(sid: str) -> None:
     threading.Thread(target=_go, daemon=True).start()
 
 
-# ── Reset logic (instant, no page reload) ─────────────────────────────────────
+# ── Reset logic (forces a full browser navigation for a truly clean slate) ────
 
 def _reset_conversation():
-    """Called by the 'New chat' button. Wipes state and forces a fresh chat container key."""
+    """Clear state and then force the browser to reload the page,
+    guaranteeing that all old chat DOM is gone."""
     old_sid = st.session_state.get("session_id", "")
 
     # Clear cached API responses
@@ -299,31 +300,26 @@ def _reset_conversation():
     except Exception:
         pass
 
-    # Reset all conversation‑related state
-    st.session_state["session_id"]    = str(uuid.uuid4())
-    st.session_state["conv_id"]       = str(uuid.uuid4())[:8]
-    st.session_state["messages"]      = []
-    st.session_state["last_sources"]  = []
-    st.session_state["last_meta"]     = {}
-    st.session_state["pending_query"] = None
-    st.session_state.pop("followups", None)
-
-    # Remove any stale widget keys (feedback, chips, etc.)
-    stale_prefixes = ("fb_", "up_", "down_", "fu_", "chip_", "followup_")
-    for key in list(st.session_state.keys()):
-        if isinstance(key, str) and key.startswith(stale_prefixes):
-            try:
-                del st.session_state[key]
-            except KeyError:
-                pass
-
+    # Delete server session (best‑effort)
     if old_sid:
         _fire_and_forget_delete(old_sid)
 
-    # Force‑rerun the script immediately. The new execution will use the
-    # updated conv_id, which makes the chat container key different, so
-    # Streamlit unmounts the old DOM and builds a fresh one.
-    st.rerun()
+    # Build a URL with a cache‑busting parameter
+    import urllib.parse
+    qp = urllib.parse.urlencode({"reset": str(int(time.time()))})
+    new_url = f"{st.request.url.split('?')[0]}?{qp}" if hasattr(st, 'request') else f"?{qp}"
+
+    # Inject JavaScript that navigates to the new URL
+    components.html(
+        f"""
+        <script>
+            window.location.href = "{new_url}";
+        </script>
+        """,
+        height=0,
+    )
+    # The script above will immediately redirect, so nothing else renders.
+    st.stop()
 
 
 def _refresh_ui():
@@ -516,7 +512,7 @@ with st.sidebar:
             "🗑 New chat",
             key="btn_new_chat",
             use_container_width=True,
-            on_click=_reset_conversation,   # <-- direct reset + rerun
+            on_click=_reset_conversation,
             help="Clears the conversation and starts a fresh session.",
         )
     with col2:
@@ -555,10 +551,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Dynamic container key forces a fresh DOM when conversation is reset
-chat_container = st.container(key=f"chat_{st.session_state.conv_id}")
-with chat_container:
-    # 1. Handle any queued query
+# Standard container (no dynamic key needed now, as page reload clears everything)
+with st.container():
+    # 1. Pending query
     if st.session_state.pending_query:
         if healthy:
             q = st.session_state.pending_query
@@ -571,7 +566,7 @@ with chat_container:
             )
             st.session_state.pending_query = None
 
-    # 2. Example chips (only when no messages exist)
+    # 2. Example chips
     if not st.session_state.messages:
         st.markdown("**👋 Try one of these to get started:**")
         cols = st.columns(2)
