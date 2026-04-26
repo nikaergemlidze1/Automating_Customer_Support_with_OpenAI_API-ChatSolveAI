@@ -84,8 +84,8 @@ Customer Query
 | 🏆 **Cross-Encoder Reranking** | `cross-encoder/ms-marco-MiniLM-L-6-v2` reranks top-K candidates for precision |
 | 🏷️ **Intent Classification** | Zero-shot routing to billing / account / shipping / technical / general |
 | ⚡ **SSE Streaming** | Token-by-token streaming from FastAPI → Streamlit via Server-Sent Events |
-| 💾 **MongoDB Persistence** | Full session history and query analytics stored asynchronously via motor |
-| 📊 **Live Analytics** | Real-time usage stats: sessions, queries, top questions, avg session length |
+| 💾 **MongoDB Persistence** | Full session history and query logs stored asynchronously via motor |
+| 📊 **Analytics API** | `/analytics`, `/analytics/timeseries`, `/analytics/intents`, `/analytics/latency`, `/analytics/feedback` endpoints — usage stats are queried directly from MongoDB instead of being shown in the sidebar |
 | 👍 **Feedback loop** | Per-answer thumbs up/down, stored for quality tracking |
 | 💡 **Smart follow-ups** | LLM-generated follow-up question chips after each reply |
 | 🎯 **Confidence + latency** | Confidence meter, intent pill, and server latency shown inline |
@@ -122,7 +122,7 @@ Customer Query
 ### Frontend & DevOps
 | Tool | Role |
 |------|------|
-| **Streamlit** | Chat UI with live sidebar analytics |
+| **Streamlit** | Chat UI — main question chips, follow-up suggestions, feedback buttons, transcript export |
 | **Docker + Compose** | Multi-service containerisation with health checks |
 | **Jenkins** | CI/CD pipeline (lint → test → build → push) |
 
