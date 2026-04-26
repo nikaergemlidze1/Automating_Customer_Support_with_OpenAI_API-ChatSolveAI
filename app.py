@@ -618,6 +618,8 @@ with chat_holder:
 
     last_idx = len(st.session_state.messages) - 1
     conv_id  = st.session_state.conv_id
+
+    # Render chat messages WITHOUT follow-up buttons inside them
     for idx, msg in enumerate(st.session_state.messages):
         avatar = USER_AVATAR if msg["role"] == "user" else ASSISTANT_AVATAR
         with st.chat_message(msg["role"], avatar=avatar):
@@ -626,6 +628,7 @@ with chat_holder:
                 render_meta(msg.get("meta", {}))
                 render_sources(msg.get("sources", []))
 
+                # Feedback buttons (stay inside the message)
                 fb_key = f"fb_{conv_id}_{idx}"
                 if st.session_state.get(fb_key) is None:
                     c1, c2, _ = st.columns([1, 1, 8])
@@ -643,30 +646,31 @@ with chat_holder:
                         f"You rated this answer: {'👍' if rating == 'up' else '👎'}"
                     )
 
-                followups = msg.get("followups") or []
-                if idx == last_idx and followups:
-                    st.markdown(
-                        '<div style="margin-top:14px; font-weight:600; '
-                        'color:#c9b8ff;">💡 Suggested follow-ups</div>',
-                        unsafe_allow_html=True,
-                    )
-                    cols = st.columns(len(followups))
-                    fu_clicked = None
-                    for i, q in enumerate(followups):
-                        with cols[i]:
-                            st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                            if st.button(
-                                q,
-                                key=f"fu_{conv_id}_{idx}_{i}",
-                                use_container_width=True,
-                            ):
-                                fu_clicked = q
-                            st.markdown('</div>', unsafe_allow_html=True)
-
-                    # Handle the click immediately after rendering the buttons
-                    if fu_clicked:
-                        st.session_state.pending_query = fu_clicked
-                        st.rerun()
+    # Render follow-up suggestion buttons OUTSIDE the chat messages
+    if st.session_state.messages and st.session_state.messages[-1]["role"] == "assistant":
+        last_msg = st.session_state.messages[-1]
+        followups = last_msg.get("followups") or []
+        if followups:
+            st.markdown(
+                '<div style="margin-top:14px; font-weight:600; '
+                'color:#c9b8ff;">💡 Suggested follow-ups</div>',
+                unsafe_allow_html=True,
+            )
+            cols = st.columns(len(followups))
+            fu_clicked = None
+            for i, q in enumerate(followups):
+                with cols[i]:
+                    st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                    if st.button(
+                        q,
+                        key=f"fu_{conv_id}_{last_idx}_{i}",
+                        use_container_width=True,
+                    ):
+                        fu_clicked = q
+                    st.markdown('</div>', unsafe_allow_html=True)
+            if fu_clicked:
+                st.session_state.pending_query = fu_clicked
+                st.rerun()
 
 # ── Chat input ────────────────────────────────────────────────────────────────
 if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
