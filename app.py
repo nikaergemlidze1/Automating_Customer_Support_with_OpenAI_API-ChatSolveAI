@@ -190,16 +190,12 @@ def _init_state():
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
-    # Drop legacy global 'followups' if present from older session.
-    # Follow-up chips are now stored per assistant message.
     st.session_state.pop("followups", None)
 
 _init_state()
 
 
 # ── API helpers ───────────────────────────────────────────────────────────────
-# (defined before _process_reset_signal because it touches fetch_analytics
-# and api_health which are declared below.)
 
 @st.cache_data(ttl=15)
 def api_health() -> bool:
@@ -216,12 +212,6 @@ def api_health() -> bool:
 
 
 def call_chat(query: str) -> dict | None:
-    """Blocking call — returns the full enriched response dict.
-
-    Two attempts: HF Spaces free tier sleeps after ~5 min idle, so the first
-    request after a long pause can hit a TCP reset / 503 while the container
-    starts. A single retry with a short pause covers that case cleanly.
-    """
     last_err = None
     for attempt in range(2):
         try:
@@ -232,7 +222,6 @@ def call_chat(query: str) -> dict | None:
             )
             if r.ok:
                 return r.json()
-            # 5xx during cold-start → retry once
             if 500 <= r.status_code < 600 and attempt == 0:
                 last_err = f"{r.status_code}: {r.text[:120]}"
                 time.sleep(3)
@@ -249,7 +238,6 @@ def call_chat(query: str) -> dict | None:
 
 
 def call_suggest(last_answer: str) -> list[str]:
-    """Best-effort follow-up suggestions; failures are silent (chips just don't show)."""
     try:
         r = requests.post(
             f"{API_URL}/suggest",
@@ -282,7 +270,6 @@ def call_feedback(query: str, answer: str, rating: str) -> bool:
 
 @st.cache_data(ttl=20)
 def fetch_analytics() -> dict | None:
-    """Sidebar live analytics. Cached briefly so fast reruns don't hammer the API."""
     try:
         r = requests.get(f"{API_URL}/analytics", timeout=8)
         return r.json() if r.ok else None
@@ -291,7 +278,6 @@ def fetch_analytics() -> dict | None:
 
 
 def _fire_and_forget_delete(sid: str) -> None:
-    """Background-thread DELETE — server LRU handles the slot anyway."""
     def _go():
         try:
             requests.delete(f"{API_URL}/chat/session/{sid}", timeout=5)
@@ -300,31 +286,20 @@ def _fire_and_forget_delete(sid: str) -> None:
     threading.Thread(target=_go, daemon=True).start()
 
 
-def _do_full_reset():
-    """
-    Mark the conversation for hard reset. The actual reset is handled
-    at the very TOP of the next script run in ``_process_hard_reset()``.
-    """
-    st.session_state["_hard_reset_pending"] = True
+# ── Reset logic (instant, no page reload) ─────────────────────────────────────
 
-
-def _process_hard_reset():
-    """
-    Wipe all conversation state and bump conv_id so the chat container
-    gets a new key – forcing Streamlit to create a fresh DOM.
-    """
-    if not st.session_state.pop("_hard_reset_pending", False):
-        return
-
+def _reset_conversation():
+    """Called by the 'New chat' button. Wipes state and forces a fresh chat container key."""
     old_sid = st.session_state.get("session_id", "")
 
+    # Clear cached API responses
     try:
         fetch_analytics.clear()
         api_health.clear()
     except Exception:
         pass
 
-    # Explicit re-assignment of every conversation key.
+    # Reset all conversation‑related state
     st.session_state["session_id"]    = str(uuid.uuid4())
     st.session_state["conv_id"]       = str(uuid.uuid4())[:8]
     st.session_state["messages"]      = []
@@ -333,7 +308,7 @@ def _process_hard_reset():
     st.session_state["pending_query"] = None
     st.session_state.pop("followups", None)
 
-    # Sweep stale widget click-state.
+    # Remove any stale widget keys (feedback, chips, etc.)
     stale_prefixes = ("fb_", "up_", "down_", "fu_", "chip_", "followup_")
     for key in list(st.session_state.keys()):
         if isinstance(key, str) and key.startswith(stale_prefixes):
@@ -342,22 +317,16 @@ def _process_hard_reset():
             except KeyError:
                 pass
 
-    # Server-side cleanup on a daemon thread (instant, doesn't block).
     if old_sid:
         _fire_and_forget_delete(old_sid)
 
-
-def _process_reset_signal():
-    """Compatibility hook — older callbacks set ``_reset_pending`` to True."""
-    if st.session_state.pop("_reset_pending", False):
-        _do_full_reset()
+    # Force‑rerun the script immediately. The new execution will use the
+    # updated conv_id, which makes the chat container key different, so
+    # Streamlit unmounts the old DOM and builds a fresh one.
+    st.rerun()
 
 
 def _refresh_ui():
-    """
-    Sidebar Refresh callback — clears caches so the next run re-checks the API
-    and reloads analytics. Also nukes any parked ``pending_query``.
-    """
     try:
         api_health.clear()
         fetch_analytics.clear()
@@ -367,15 +336,9 @@ def _refresh_ui():
 
 
 def _queue_query(query: str):
-    """Button-click callback — queue a query and let Streamlit auto-rerun."""
     if not query:
         return
     st.session_state.pending_query = query
-
-
-# Process pending resets NOW, before any chat-area widget renders.
-_process_hard_reset()
-_process_reset_signal()
 
 
 def _record_feedback(idx: int, rating: str):
@@ -553,7 +516,7 @@ with st.sidebar:
             "🗑 New chat",
             key="btn_new_chat",
             use_container_width=True,
-            on_click=_do_full_reset,
+            on_click=_reset_conversation,   # <-- direct reset + rerun
             help="Clears the conversation and starts a fresh session.",
         )
     with col2:
@@ -592,11 +555,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# The key changes every time the conversation is reset, forcing Streamlit
-# to destroy the old chat container and build a fresh one – no stale DOM.
+# Dynamic container key forces a fresh DOM when conversation is reset
 chat_container = st.container(key=f"chat_{st.session_state.conv_id}")
 with chat_container:
-    # 1. Handle a queued query FIRST — before any chip / history render.
+    # 1. Handle any queued query
     if st.session_state.pending_query:
         if healthy:
             q = st.session_state.pending_query
@@ -609,7 +571,7 @@ with chat_container:
             )
             st.session_state.pending_query = None
 
-    # 2. Example-question chips (only on fresh conversations).
+    # 2. Example chips (only when no messages exist)
     if not st.session_state.messages:
         st.markdown("**👋 Try one of these to get started:**")
         cols = st.columns(2)
@@ -626,8 +588,7 @@ with chat_container:
                 )
                 st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. Conversation history. Widget keys carry conv_id so a fresh
-    #    conversation cannot inherit click-state from a previous one.
+    # 3. Message history
     last_idx = len(st.session_state.messages) - 1
     conv_id  = st.session_state.conv_id
     for idx, msg in enumerate(st.session_state.messages):
@@ -680,8 +641,7 @@ with chat_container:
                             st.markdown('</div>', unsafe_allow_html=True)
 
 
-# Input box (guarded behind health). Lives outside the chat holder so
-# the input bar position doesn't jump between renders.
+# Input box
 if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
     if not healthy:
         st.error("Cannot send message — API is not reachable.")
