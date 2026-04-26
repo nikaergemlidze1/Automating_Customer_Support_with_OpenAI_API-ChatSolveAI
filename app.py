@@ -629,20 +629,14 @@ with chat_holder:
                 fb_key = f"fb_{conv_id}_{idx}"
                 if st.session_state.get(fb_key) is None:
                     c1, c2, _ = st.columns([1, 1, 8])
-                    c1.button(
-                        "👍",
-                        key=f"up_{conv_id}_{idx}",
-                        help="Good answer",
-                        on_click=_record_feedback,
-                        args=(idx, "up"),
-                    )
-                    c2.button(
-                        "👎",
-                        key=f"down_{conv_id}_{idx}",
-                        help="Needs work",
-                        on_click=_record_feedback,
-                        args=(idx, "down"),
-                    )
+                    with c1:
+                        if st.button("👍", key=f"up_{conv_id}_{idx}", help="Good answer"):
+                            _record_feedback(idx, "up")
+                            st.rerun()
+                    with c2:
+                        if st.button("👎", key=f"down_{conv_id}_{idx}", help="Needs work"):
+                            _record_feedback(idx, "down")
+                            st.rerun()
                 else:
                     rating = st.session_state[fb_key]
                     st.caption(
@@ -657,17 +651,22 @@ with chat_holder:
                         unsafe_allow_html=True,
                     )
                     cols = st.columns(len(followups))
+                    fu_clicked = None
                     for i, q in enumerate(followups):
                         with cols[i]:
                             st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                            st.button(
+                            if st.button(
                                 q,
                                 key=f"fu_{conv_id}_{idx}_{i}",
-                                on_click=_queue_query,
-                                args=(q,),
                                 use_container_width=True,
-                            )
+                            ):
+                                fu_clicked = q
                             st.markdown('</div>', unsafe_allow_html=True)
+
+                    # Handle the click immediately after rendering the buttons
+                    if fu_clicked:
+                        st.session_state.pending_query = fu_clicked
+                        st.rerun()
 
 # ── Chat input ────────────────────────────────────────────────────────────────
 if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
