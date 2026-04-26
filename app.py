@@ -281,16 +281,6 @@ def call_feedback(query: str, answer: str, rating: str) -> bool:
         return False
 
 
-@st.cache_data(ttl=20, show_spinner=False)
-def fetch_analytics() -> dict | None:
-    """Sidebar live analytics. Cached briefly so fast reruns don't hammer the API."""
-    try:
-        r = requests.get(f"{API_URL}/analytics", timeout=8)
-        return r.json() if r.ok else None
-    except Exception:
-        return None
-
-
 def _fire_and_forget_delete(sid: str) -> None:
     """Background-thread DELETE — server LRU handles the slot anyway."""
     def _go():
@@ -302,16 +292,6 @@ def _fire_and_forget_delete(sid: str) -> None:
 
 
 # ── Callbacks ─────────────────────────────────────────────────────────────────
-
-
-def _refresh_ui():
-    """Sidebar Refresh callback."""
-    try:
-        api_health.clear()
-        fetch_analytics.clear()
-    except Exception:
-        pass
-    st.session_state.pending_query = None
 
 
 def _queue_query(query: str):
@@ -466,7 +446,6 @@ def _perform_full_reset():
         st.query_params.clear()
     except Exception:
         pass
-    fetch_analytics.clear()
     api_health.clear()
 
     # New conversation identity
@@ -509,45 +488,17 @@ with st.sidebar:
         st.error(f"API unreachable at {API_URL}", icon="🔴")
         st.info(
             "The backend may be cold-starting (free-tier hosts sleep after idle). "
-            "Wait ~30s and click **Refresh**. To start locally:\n"
+            "Wait ~30s and try again. To start locally:\n"
             "```\nuvicorn api.main:app --port 8000\n```"
         )
 
     st.caption(f"Session: `{st.session_state.session_id[:8]}…`")
     st.divider()
 
-    if healthy:
-        analytics = fetch_analytics()
-        if analytics:
-            st.subheader("📊 Live analytics")
-            col1, col2 = st.columns(2)
-            col1.metric("Sessions", analytics.get("total_sessions", 0))
-            col2.metric("Queries",  analytics.get("total_queries",  0))
-            col1.metric("Today",    analytics.get("queries_today",  0))
-            col2.metric("Avg turns", analytics.get("avg_session_length", 0))
-
-            tops = analytics.get("top_questions", [])
-            if tops:
-                st.caption("🔥 Top questions")
-                for item in tops[:5]:
-                    st.markdown(f"- {item['question'][:50]}… `×{item['count']}`")
-        st.divider()
-
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🗑 New chat", key="btn_new_chat", use_container_width=True,
-                     help="Clears the conversation and starts a fresh session."):
-            _perform_full_reset()
-            st.rerun()
-
-    with col2:
-        st.button(
-            "🔄 Refresh",
-            key="btn_refresh",
-            use_container_width=True,
-            on_click=_refresh_ui,
-            help="Re-checks the API and reloads sidebar analytics.",
-        )
+    if st.button("🗑 New chat", key="btn_new_chat", use_container_width=True,
+                 help="Clears the conversation and starts a fresh session."):
+        _perform_full_reset()
+        st.rerun()
 
     if st.session_state.messages:
         st.download_button(
@@ -558,12 +509,17 @@ with st.sidebar:
             use_container_width=True,
         )
 
-    st.divider()
-    st.markdown(
-        "<small>LangChain · FAISS · GPT-3.5-turbo<br>"
-        "MongoDB · FastAPI · Docker · HF Spaces</small>",
-        unsafe_allow_html=True,
-    )
+    # Footer wrapped in a dedicated container so Streamlit's element diff
+    # treats it as one removable subtree — prevents the doubled-footer
+    # leak the user spotted on Streamlit Cloud after "New chat".
+    footer_container = st.container()
+    with footer_container:
+        st.divider()
+        st.markdown(
+            "<small>LangChain · FAISS · GPT-3.5-turbo<br>"
+            "MongoDB · FastAPI · Docker · HF Spaces</small>",
+            unsafe_allow_html=True,
+        )
 
 
 # ── Main chat UI ──────────────────────────────────────────────────────────────
@@ -587,7 +543,7 @@ if st.session_state.pending_query:
     else:
         st.warning(
             "Backend is waking up and didn't answer in time. "
-            "Click **🔄 Refresh** in the sidebar in a few seconds, then retry."
+            "Wait ~30s and try again."
         )
         st.session_state.pending_query = None
 
