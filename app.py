@@ -286,11 +286,10 @@ def _fire_and_forget_delete(sid: str) -> None:
     threading.Thread(target=_go, daemon=True).start()
 
 
-# ── Reset logic (forces a full browser navigation for a truly clean slate) ────
+# ── Reset logic (guaranteed clean slate via full page navigation) ─────────────
 
 def _reset_conversation():
-    """Clear state and then force the browser to reload the page,
-    guaranteeing that all old chat DOM is gone."""
+    """Clear state and force the browser to reload the page completely."""
     old_sid = st.session_state.get("session_id", "")
 
     # Clear cached API responses
@@ -304,21 +303,15 @@ def _reset_conversation():
     if old_sid:
         _fire_and_forget_delete(old_sid)
 
-    # Build a URL with a cache‑busting parameter
-    import urllib.parse
-    qp = urllib.parse.urlencode({"reset": str(int(time.time()))})
-    new_url = f"{st.request.url.split('?')[0]}?{qp}" if hasattr(st, 'request') else f"?{qp}"
-
-    # Inject JavaScript that navigates to the new URL
+    # Navigate to the same URL with a cache‑busting query parameter
     components.html(
         f"""
         <script>
-            window.location.href = "{new_url}";
+            window.location.href = "?reset={int(time.time())}";
         </script>
         """,
         height=0,
     )
-    # The script above will immediately redirect, so nothing else renders.
     st.stop()
 
 
@@ -551,9 +544,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Standard container (no dynamic key needed now, as page reload clears everything)
+# Standard container – no special key needed because the page reloads on reset
 with st.container():
-    # 1. Pending query
     if st.session_state.pending_query:
         if healthy:
             q = st.session_state.pending_query
@@ -566,7 +558,6 @@ with st.container():
             )
             st.session_state.pending_query = None
 
-    # 2. Example chips
     if not st.session_state.messages:
         st.markdown("**👋 Try one of these to get started:**")
         cols = st.columns(2)
@@ -583,7 +574,6 @@ with st.container():
                 )
                 st.markdown('</div>', unsafe_allow_html=True)
 
-    # 3. Message history
     last_idx = len(st.session_state.messages) - 1
     conv_id  = st.session_state.conv_id
     for idx, msg in enumerate(st.session_state.messages):
@@ -636,7 +626,6 @@ with st.container():
                             st.markdown('</div>', unsafe_allow_html=True)
 
 
-# Input box
 if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
     if not healthy:
         st.error("Cannot send message — API is not reachable.")
