@@ -350,8 +350,9 @@ def _do_full_reset():
     if old_sid:
         _fire_and_forget_delete(old_sid)
 
-    # 🔁 Force a clean rerun so the UI is rebuilt from scratch
-    st.rerun()
+    # Signal the main script to perform one extra‑clean rerun
+    # (st.rerun() inside a callback is a no‑op, so we defer it)
+    st.session_state["_reset_clean_rerun"] = True
 
 
 def _refresh_ui():
@@ -724,6 +725,9 @@ with chat_holder:
 
 # Input box (guarded behind health). Lives outside the chat holder so
 # the input bar position doesn't jump between renders.
+# ── After the chat container, force a clean rerun after a reset ───────────────
+if st.session_state.pop("_reset_clean_rerun", False):
+    st.rerun()
 if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
     if not healthy:
         st.error("Cannot send message — API is not reachable.")
