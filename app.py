@@ -23,7 +23,6 @@ from datetime import datetime
 
 import requests
 import streamlit as st
-import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -198,8 +197,6 @@ _init_state()
 
 
 # ── API helpers ───────────────────────────────────────────────────────────────
-# (defined before _process_reset_signal because it touches fetch_analytics
-# and api_health which are declared below.)
 
 @st.cache_data(ttl=15)
 def api_health() -> bool:
@@ -304,34 +301,15 @@ def _fire_and_forget_delete(sid: str) -> None:
 
 def _do_full_reset():
     """
-    Mark the conversation for hard reset. The actual reset (clear state +
-    force a browser reload) is handled at the very TOP of the next script
-    run, in ``_process_hard_reset()``, before any chat-area widget paints.
-
-    This two-step pattern is necessary because empirical evidence on
-    Streamlit Cloud is that ANY in-place clear (``st.session_state.clear``,
-    explicit re-assignment, ``st.empty()`` placeholders, query-param bumps,
-    ``st.rerun()`` from inside an on_click handler) can leave the
-    previous chat_message DOM nodes visible alongside the freshly
-    rendered example chips. The only thing that has actually worked is
-    a real browser navigation — which we trigger from the top of the
-    next run rather than from inside the click handler so the user
-    never sees a half-updated frame.
+    On_click callback for "New chat". Resets every conversation key in
+    session_state and bumps ``conv_id``. The chat zone is rendered inside
+    ``st.container(key=f"chatzone_{conv_id}")`` — when ``conv_id`` changes,
+    Streamlit assigns a new identity to the container and rebuilds its
+    entire subtree from scratch instead of diffing element-by-element
+    against the previous frame. That guarantees both stale chat_message
+    DOM nodes (main Q/A bubbles) AND stale follow-up suggestion chips
+    are evicted in one atomic swap, with no browser reload required.
     """
-    st.session_state["_hard_reset_pending"] = True
-
-
-def _process_hard_reset():
-    """
-    Run at the very top of the script (after _init_state). If the flag
-    is set: wipe all conversation state and let the script continue so
-    chat_holder re-renders with messages=[] — atomically replacing the
-    old chat content (messages, follow-up chips) with the example chips.
-    No browser reload; pure in-place Streamlit reset.
-    """
-    if not st.session_state.pop("_hard_reset_pending", False):
-        return
-
     old_sid = st.session_state.get("session_id", "")
 
     try:
@@ -340,7 +318,8 @@ def _process_hard_reset():
     except Exception:
         pass
 
-    # Explicit re-assignment of every conversation key.
+    # Re-assign every conversation key. The conv_id bump is what forces
+    # the keyed chat container to swap identity on the next render.
     st.session_state["session_id"]    = str(uuid.uuid4())
     st.session_state["conv_id"]       = str(uuid.uuid4())[:8]
     st.session_state["messages"]      = []
@@ -349,7 +328,7 @@ def _process_hard_reset():
     st.session_state["pending_query"] = None
     st.session_state.pop("followups", None)
 
-    # Sweep stale widget click-state.
+    # Sweep stale widget click-state from the previous conversation.
     stale_prefixes = ("fb_", "up_", "down_", "fu_", "chip_", "followup_")
     for key in list(st.session_state.keys()):
         if isinstance(key, str) and key.startswith(stale_prefixes):
@@ -361,12 +340,6 @@ def _process_hard_reset():
     # Server-side cleanup on a daemon thread (instant, doesn't block).
     if old_sid:
         _fire_and_forget_delete(old_sid)
-
-
-def _process_reset_signal():
-    """Compatibility hook — older callbacks set ``_reset_pending`` to True."""
-    if st.session_state.pop("_reset_pending", False):
-        _do_full_reset()
 
 
 def _refresh_ui():
@@ -390,13 +363,9 @@ def _queue_query(query: str):
     st.session_state.pending_query = query
 
 
-# Process pending resets NOW, before a single chat-area widget renders.
-# Placement matters: must be after fetch_analytics + api_health are
-# declared (so .clear() works) and before sidebar / main UI.
-# _process_hard_reset() may call st.stop() — that's intentional; nothing
-# else should paint during the brief moment before window.parent.reload().
-_process_hard_reset()
-_process_reset_signal()
+# "New chat" reset is handled directly inside ``_do_full_reset`` (an
+# on_click callback). No signal/iframe/reload step needed — the keyed
+# chat container below (see chat_holder) does the DOM-rebuild work.
 
 
 def _record_feedback(idx: int, rating: str):
@@ -640,15 +609,16 @@ st.markdown(
 )
 
 # All chat content (pending-query handler, example chips, message
-# history, follow-up chips) renders inside a SINGLE st.empty() slot.
-# This is the most reliable way to make Streamlit treat the chat zone
-# as one swap-out unit — on the next rerun the whole subtree is
-# replaced atomically rather than diffed element-by-element. Without
-# this, Streamlit Cloud has been observed to keep stale chat_message
-# DOM nodes from the previous conversation visible after "New chat".
-chat_holder = st.empty()
+# history, follow-up chips) renders inside a SINGLE st.container whose
+# key is bound to ``conv_id``. When "New chat" bumps ``conv_id``, the
+# container key changes — Streamlit assigns a new identity and rebuilds
+# the entire subtree from scratch instead of diffing against the
+# previous frame. That guarantees both stale chat_message DOM nodes
+# (main Q/A bubbles) AND stale follow-up suggestion chips are evicted
+# in one atomic swap, with no browser reload required.
+chat_holder = st.container(key=f"chatzone_{st.session_state.conv_id}")
 
-with chat_holder.container():
+with chat_holder:
     # 1. Handle a queued query FIRST — before any chip / history render.
     if st.session_state.pending_query:
         if healthy:

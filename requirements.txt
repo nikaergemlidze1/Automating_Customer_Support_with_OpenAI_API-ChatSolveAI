@@ -31,7 +31,7 @@ motor>=3.4.0
 pymongo>=4.7.0
 
 # ── Web app (Streamlit frontend) ──────────────────────────────────────────────
-streamlit>=1.35.0
+streamlit>=1.39.0
 requests>=2.31.0
 
 # ── Visualisation (notebook only) ─────────────────────────────────────────────
