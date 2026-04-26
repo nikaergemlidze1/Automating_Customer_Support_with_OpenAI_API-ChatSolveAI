@@ -13,12 +13,12 @@ Run via Docker (recommended):
 
 from __future__ import annotations
 
-import html
 import io
 import json
 import os
 import threading
 import time
+import urllib.parse
 import uuid
 from datetime import datetime
 
@@ -146,71 +146,31 @@ st.markdown("""
     border-color: var(--accent) !important;
 }
 
-/* Custom chat bubbles — the entire history is rendered as a SINGLE
-   st.markdown blob so Streamlit's element-diff has exactly one
-   element to manage instead of N chat_message widgets. Single-element
-   content swap is reliable on Streamlit Cloud; per-widget removal
-   was leaking stale DOM after "New chat". */
-.custom-chat { display: flex; flex-direction: column; gap: 14px; margin: 14px 0; }
-.bubble {
-    display: flex; gap: 10px;
-    padding: 12px 14px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-}
-.bubble.bubble-user { background: rgba(255,255,255,0.03); }
-.bubble.bubble-assistant { background: rgba(79,139,249,0.06); }
-.bubble-avatar { font-size: 1.3rem; flex-shrink: 0; line-height: 1.4; }
-.bubble-body { flex: 1; min-width: 0; }
-.bubble-text {
-    color: #d4d7dd;
-    line-height: 1.5;
-    word-wrap: break-word;
-    white-space: pre-wrap;
-}
-.bubble-meta {
+/* Follow-up suggestion chips — rendered as plain HTML <a> links (not
+   st.button) so they're part of a single st.markdown blob. When messages
+   clear on "New chat", the markdown element is removed atomically — no
+   stale st.button widgets can survive Streamlit Cloud's element diff. */
+.fu-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-top: 8px;
-    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
 }
-.bubble-sources { margin-top: 10px; }
-.bubble-sources summary {
-    cursor: pointer;
-    color: #9ea3b0;
-    font-size: 0.85rem;
-    list-style: none;
-    user-select: none;
-    padding: 4px 0;
-}
-.bubble-sources summary::-webkit-details-marker { display: none; }
-.bubble-sources summary::before { content: "▸ "; color: #6b7280; }
-.bubble-sources[open] summary::before { content: "▾ "; }
-.bubble-sources .src-item {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-left: 3px solid rgba(79,139,249,0.8);
-    padding: 8px 12px;
-    border-radius: 6px;
-    margin-top: 6px;
-    font-size: 0.82rem;
-    line-height: 1.4;
-    color: #d4d7dd;
-}
-.bubble-sources .src-item.top {
-    border-left-color: #66bb6a;
-    background: rgba(102,187,106,0.08);
-}
-
-/* Follow-up suggestion chips (st.button widgets — small, pill-shaped) */
-.followup-chip button {
-    background: rgba(142,107,255,0.10) !important;
-    border: 1px solid rgba(142,107,255,0.35) !important;
+.fu-chip-link {
+    display: inline-block;
+    background: rgba(142,107,255,0.10);
+    border: 1px solid rgba(142,107,255,0.35);
     color: #c9b8ff !important;
-    font-size: 0.82rem !important;
-    padding: 4px 10px !important;
-    height: auto !important;
-    border-radius: 999px !important;
+    font-size: 0.82rem;
+    padding: 6px 14px;
+    border-radius: 999px;
+    text-decoration: none !important;
+    transition: background 0.15s ease, border-color 0.15s ease;
 }
-.followup-chip button:hover { background: rgba(142,107,255,0.22) !important; }
+.fu-chip-link:hover {
+    background: rgba(142,107,255,0.22);
+    border-color: rgba(142,107,255,0.6);
+}
 
 /* Feedback buttons */
 .fb-row { display: flex; gap: 6px; margin-top: 6px; }
@@ -357,13 +317,7 @@ def _fire_and_forget_delete(sid: str) -> None:
 def _do_full_reset():
     """
     On_click callback for "New chat". Resets every conversation key in
-    session_state and bumps ``conv_id``. The chat zone is rendered inside
-    ``st.container(key=f"chatzone_{conv_id}")`` — when ``conv_id`` changes,
-    Streamlit assigns a new identity to the container and rebuilds its
-    entire subtree from scratch instead of diffing element-by-element
-    against the previous frame. That guarantees both stale chat_message
-    DOM nodes (main Q/A bubbles) AND stale follow-up suggestion chips
-    are evicted in one atomic swap, with no browser reload required.
+    session_state and bumps ``conv_id``. 
     """
     old_sid = st.session_state.get("session_id", "")
 
@@ -372,6 +326,15 @@ def _do_full_reset():
         api_health.clear()
     except Exception:
         pass
+
+    # Clear query parameters so leftover ?fu= doesn't re-trigger
+    try:
+        st.query_params.clear()
+    except Exception:
+        try:
+            st.experimental_set_query_params()
+        except Exception:
+            pass
 
     # Re-assign every conversation key. The conv_id bump is what forces
     # the keyed chat container to swap identity on the next render.
@@ -421,6 +384,26 @@ def _queue_query(query: str):
 # "New chat" reset is handled directly inside ``_do_full_reset`` (an
 # on_click callback). No signal/iframe/reload step needed — the keyed
 # chat container below (see chat_holder) does the DOM-rebuild work.
+
+
+# Follow-up chip click handler. Chips are rendered as plain HTML <a>
+# links with ``?fu=<question>`` — clicking one updates the URL, which
+# Streamlit treats as a script rerun (no full page reload). Read the
+# param here, clear it from the URL so a refresh doesn't re-fire, and
+# queue the query just like a button click would.
+_fu_param = st.query_params.get("fu")
+if _fu_param:
+    if isinstance(_fu_param, list):
+        _fu_param = _fu_param[0] if _fu_param else None
+    if _fu_param:
+        try:
+            st.query_params.clear()
+        except Exception:
+            try:
+                st.experimental_set_query_params()
+            except Exception:
+                pass
+        st.session_state.pending_query = _fu_param
 
 
 def _record_feedback(idx: int, rating: str):
@@ -503,80 +486,6 @@ def render_sources(sources: list[dict]):
                 f'</div>',
                 unsafe_allow_html=True,
             )
-
-
-def render_history_html(messages: list[dict]) -> str:
-    """
-    Build the entire chat history as a single HTML blob for one
-    ``st.markdown(unsafe_allow_html=True)`` call.
-
-    Why: Streamlit Cloud's element-diff has been observed to leak per-
-    message ``st.chat_message`` widgets after "New chat" — even when
-    the messages list is reset to ``[]`` the previous frame's bubbles
-    sometimes stay painted. With one big markdown element, Streamlit
-    only has to manage *one* element; element-content swap is the
-    reliable code path that already works for every other markdown
-    element on the page (e.g. the example-chips header).
-
-    When ``messages == []`` this function returns an empty string,
-    so the markdown element is removed entirely from the DOM — no
-    more stale chat bubbles can survive "New chat".
-    """
-    if not messages:
-        return ""
-
-    out: list[str] = ['<div class="custom-chat">']
-    for msg in messages:
-        role        = msg.get("role", "user")
-        avatar      = ASSISTANT_AVATAR if role == "assistant" else USER_AVATAR
-        text_safe   = html.escape(msg.get("content", ""))
-        meta_html   = ""
-        sources_html = ""
-
-        if role == "assistant":
-            meta = msg.get("meta") or {}
-            if meta:
-                intent      = meta.get("intent", "general")
-                info        = INTENT_META.get(intent, INTENT_META["general"])
-                conf        = float(meta.get("confidence", 0.0))
-                lat         = int(meta.get("latency_ms", 0))
-                pill_class  = confidence_class(conf)
-                meta_html = (
-                    '<div class="bubble-meta">'
-                    f'<span class="pill">{info["emoji"]} {info["label"]}</span>'
-                    f'<span class="pill {pill_class}">{int(conf*100)}% confidence</span>'
-                    f'<span class="pill pill-purple">⚡ {lat} ms</span>'
-                    '</div>'
-                    f'<div class="meter-wrap"><div class="meter-fill" style="width:{conf*100:.0f}%"></div></div>'
-                )
-
-            sources = msg.get("sources") or []
-            if sources:
-                items: list[str] = []
-                for i, src in enumerate(sources[:4]):
-                    cls       = "src-item top" if i == 0 else "src-item"
-                    src_text  = html.escape(str(src.get("content", ""))[:220])
-                    items.append(f'<div class="{cls}">{src_text}</div>')
-                items_html = "".join(items)
-                sources_html = (
-                    '<details class="bubble-sources">'
-                    f'<summary>📚 Sources ({len(sources)})</summary>'
-                    f'{items_html}'
-                    '</details>'
-                )
-
-        out.append(
-            f'<div class="bubble bubble-{role}">'
-            f'<span class="bubble-avatar">{avatar}</span>'
-            f'<div class="bubble-body">'
-            f'<div class="bubble-text">{text_safe}</div>'
-            f'{meta_html}'
-            f'{sources_html}'
-            '</div>'
-            '</div>'
-        )
-    out.append('</div>')
-    return "".join(out)
 
 
 def build_transcript_md() -> str:
@@ -663,241 +572,4 @@ with st.sidebar:
         st.info(
             "The backend may be cold-starting (free-tier hosts sleep after idle). "
             "Wait ~30s and click **Refresh**. To start locally:\n"
-            "```\nuvicorn api.main:app --port 8000\n```"
-        )
-
-    st.caption(f"Session: `{st.session_state.session_id[:8]}…`")
-    st.divider()
-
-    if healthy:
-        analytics = fetch_analytics()
-        if analytics:
-            st.subheader("📊 Live analytics")
-            col1, col2 = st.columns(2)
-            col1.metric("Sessions", analytics.get("total_sessions", 0))
-            col2.metric("Queries",  analytics.get("total_queries",  0))
-            col1.metric("Today",    analytics.get("queries_today",  0))
-            col2.metric("Avg turns", analytics.get("avg_session_length", 0))
-
-            tops = analytics.get("top_questions", [])
-            if tops:
-                st.caption("🔥 Top questions")
-                for item in tops[:5]:
-                    st.markdown(f"- {item['question'][:50]}… `×{item['count']}`")
-        st.divider()
-
-    # Controls — on_click callbacks. Streamlit guarantees the callback
-    # runs and the next render sees the new state; we deliberately do
-    # NOT call st.rerun() inside the callback because doing so from a
-    # handler that is already in a rerun cycle can cause Streamlit Cloud
-    # to commit the new frame on top of the previous DOM (ghost frame).
-    col1, col2 = st.columns(2)
-    with col1:
-        st.button(
-            "🗑 New chat",
-            key="btn_new_chat",
-            use_container_width=True,
-            on_click=_do_full_reset,
-            help="Clears the conversation and starts a fresh session.",
-        )
-    with col2:
-        st.button(
-            "🔄 Refresh",
-            key="btn_refresh",
-            use_container_width=True,
-            on_click=_refresh_ui,
-            help="Re-checks the API and reloads sidebar analytics.",
-        )
-
-    # Export
-    if st.session_state.messages:
-        st.download_button(
-            "⬇️ Export chat (.md)",
-            data=build_transcript_md(),
-            file_name=f"chatsolveai_{st.session_state.session_id[:8]}.md",
-            mime="text/markdown",
-            use_container_width=True,
-        )
-
-    st.divider()
-    st.markdown(
-        "<small>LangChain · FAISS · GPT-3.5-turbo<br>"
-        "MongoDB · FastAPI · Docker · HF Spaces</small>",
-        unsafe_allow_html=True,
-    )
-
-
-# ── Main chat UI ──────────────────────────────────────────────────────────────
-
-st.markdown('<div class="hero-title">💬 ChatSolveAI — Customer Support</div>',
-            unsafe_allow_html=True)
-st.markdown(
-    '<p class="hero-sub">LangChain RAG · GPT-3.5-turbo · MongoDB · FastAPI on Hugging Face. '
-    'Retrieves from a curated knowledge base and falls back to generation for novel queries.</p>',
-    unsafe_allow_html=True,
-)
-
-# All chat content (pending-query handler, example chips, message
-# history, follow-up chips) renders inside a SINGLE st.container whose
-# key is bound to ``conv_id``. When "New chat" bumps ``conv_id``, the
-# container key changes and Streamlit applies CSS class
-# ``st-key-chatzone_<conv_id>`` to the new container's root element.
-#
-# CSS rule below hides any chat container whose class does NOT match
-# the current conv_id. This is a guaranteed top-level DOM fix that
-# does not depend on Streamlit's element diff actually removing the
-# stale subtree (which has been observed to leak on Streamlit Cloud).
-# CSS injected via ``st.markdown(unsafe_allow_html=True)`` lands in
-# the main app DOM and applies globally — no iframe / sandbox / cross-
-# origin issues like the components.html JS attempt in PR #21 had.
-st.markdown(
-    f"""
-    <style>
-    /* Hide every stale chat container — only the one whose key matches
-       the current conv_id is allowed to paint. */
-    [class*="st-key-chatzone_"]:not(.st-key-chatzone_{st.session_state.conv_id}) {{
-        display: none !important;
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-chat_holder = st.container(key=f"chatzone_{st.session_state.conv_id}")
-
-with chat_holder:
-    # 1. Handle a queued query FIRST — before any chip / history render.
-    if st.session_state.pending_query:
-        if healthy:
-            q = st.session_state.pending_query
-            st.session_state.pending_query = None
-            submit_query(q)
-        else:
-            st.warning(
-                "Backend is waking up and didn't answer in time. "
-                "Click **🔄 Refresh** in the sidebar in a few seconds, then retry."
-            )
-            st.session_state.pending_query = None
-
-    # 2. Example-question chips (only on fresh conversations).
-    if not st.session_state.messages:
-        st.markdown("**👋 Try one of these to get started:**")
-        cols = st.columns(2)
-        _conv = st.session_state.conv_id
-        for i, (emoji, q) in enumerate(EXAMPLE_QUESTIONS):
-            with cols[i % 2]:
-                st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                st.button(
-                    f"{emoji}   {q}",
-                    key=f"chip_{_conv}_{i}",
-                    use_container_width=True,
-                    on_click=_queue_query,
-                    args=(q,),
-                )
-                st.markdown('</div>', unsafe_allow_html=True)
-
-    # 3. Conversation history — rendered as a SINGLE st.markdown blob
-    #    (instead of N st.chat_message widgets). Why: Streamlit Cloud's
-    #    element-diff has been observed to leak stale chat_message DOM
-    #    nodes after "New chat", even when messages == []. With one
-    #    markdown element, the diff path is element-content swap (the
-    #    same path that already works reliably for the example-chips
-    #    header), and ``render_history_html([])`` returns "" so the
-    #    element disappears entirely from the DOM on reset.
-    #
-    #    Trade-off: per-message feedback buttons are rendered after
-    #    the blob in a separate Streamlit-native section so that
-    #    on_click callbacks still work for the latest assistant turn.
-    history_html = render_history_html(st.session_state.messages)
-    if history_html:
-        st.markdown(history_html, unsafe_allow_html=True)
-
-    # Feedback buttons for the latest assistant turn (kept as real
-    # widgets so ``on_click=_record_feedback`` works). Earlier turns
-    # are read-only inside the markdown blob.
-    msgs    = st.session_state.messages
-    conv_id = st.session_state.conv_id
-    if msgs and msgs[-1].get("role") == "assistant":
-        last_idx = len(msgs) - 1
-        fb_key   = f"fb_{conv_id}_{last_idx}"
-        if st.session_state.get(fb_key) is None:
-            c1, c2, _ = st.columns([1, 1, 8])
-            c1.button(
-                "👍",
-                key=f"up_{conv_id}_{last_idx}",
-                help="Good answer",
-                on_click=_record_feedback,
-                args=(last_idx, "up"),
-            )
-            c2.button(
-                "👎",
-                key=f"down_{conv_id}_{last_idx}",
-                help="Needs work",
-                on_click=_record_feedback,
-                args=(last_idx, "down"),
-            )
-        else:
-            rating = st.session_state[fb_key]
-            st.caption(
-                f"You rated this answer: {'👍' if rating == 'up' else '👎'}"
-            )
-
-    # 4. Follow-up chips — rendered into a DEDICATED st.empty() slot
-    #    that lives OUTSIDE the message loop (but still inside the
-    #    chat container). st.empty() is Streamlit's purpose-built
-    #    primitive for atomic content swap: writing into it replaces
-    #    the prior content; not writing leaves it empty (and any
-    #    prior content is removed). This isolates chip rendering
-    #    from the per-message loop, where the conditional-element
-    #    diff was leaving stale chip DOM behind on Streamlit Cloud.
-    #
-    #    Chips are real ``st.button`` widgets so click handling stays
-    #    inside Streamlit's normal callback flow — clicking a chip
-    #    appends a new turn to the conversation; it does NOT clear
-    #    the conversation. Only "New chat" clears.
-    chips_slot = st.empty()
-    if (
-        st.session_state.messages
-        and st.session_state.messages[-1].get("role") == "assistant"
-    ):
-        last_msg  = st.session_state.messages[-1]
-        followups = last_msg.get("followups") or []
-        if followups:
-            with chips_slot.container():
-                st.markdown(
-                    '<div style="margin-top:14px; font-weight:600; '
-                    'color:#c9b8ff;">💡 Suggested follow-ups</div>',
-                    unsafe_allow_html=True,
-                )
-                cols = st.columns(len(followups))
-                for i, q in enumerate(followups):
-                    with cols[i]:
-                        st.markdown(
-                            '<div class="followup-chip">',
-                            unsafe_allow_html=True,
-                        )
-                        st.button(
-                            q,
-                            key=f"fu_{st.session_state.conv_id}_{i}",
-                            on_click=_queue_query,
-                            args=(q,),
-                        )
-                        st.markdown('</div>', unsafe_allow_html=True)
-
-
-# Input box (guarded behind health). Lives outside the chat holder so
-# the input bar position doesn't jump between renders.
-if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
-    if not healthy:
-        st.error("Cannot send message — API is not reachable.")
-        st.stop()
-    _queue_query(prompt)
-    st.rerun()
-
-
-# Stale-DOM eviction is now handled by the CSS rule injected at the top
-# of the chat zone (see ``st-key-chatzone_*`` selector above). No JS /
-# components.html iframe is needed — the CSS approach lands in the main
-# app DOM directly via ``st.markdown(unsafe_allow_html=True)`` and
-# avoids the iframe sandbox / cross-origin restrictions that prevented
-# PR #21's JS pruner from running on Streamlit Cloud.
+            "
