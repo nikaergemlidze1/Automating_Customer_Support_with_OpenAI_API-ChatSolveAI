@@ -372,31 +372,6 @@ def _queue_query(query: str):
     st.session_state.pending_query = query
 
 
-# "New chat" reset is handled directly inside ``_do_full_reset`` (an
-# on_click callback). No signal/iframe/reload step needed — the keyed
-# chat container below (see chat_holder) does the DOM-rebuild work.
-
-
-# Follow-up chip click handler. Chips are rendered as plain HTML <a>
-# links with ``?fu=<question>`` — clicking one updates the URL, which
-# Streamlit treats as a script rerun (no full page reload). Read the
-# param here, clear it from the URL so a refresh doesn't re-fire, and
-# queue the query just like a button click would.
-_fu_param = st.query_params.get("fu")
-if _fu_param:
-    if isinstance(_fu_param, list):
-        _fu_param = _fu_param[0] if _fu_param else None
-    if _fu_param:
-        try:
-            st.query_params.clear()
-        except Exception:
-            try:
-                st.experimental_set_query_params()
-            except Exception:
-                pass
-        st.session_state.pending_query = _fu_param
-
-
 def _record_feedback(idx: int, rating: str):
     """
     Feedback callback — one click is enough because Streamlit auto-reruns
@@ -723,18 +698,24 @@ with chat_holder:
                 # No widget reconciliation = no stale chips can survive.
                 followups = msg.get("followups") or []
                 if idx == last_idx and followups:
-                    chips = "".join(
-                        f'<a class="fu-chip-link" href="?fu={urllib.parse.quote(q)}" '
-                        f'target="_self">{q}</a>'
-                        for q in followups
-                    )
                     st.markdown(
                         '<div style="margin-top:14px; font-weight:600; '
-                        'color:#c9b8ff;">💡 Suggested follow-ups</div>'
-                        f'<div class="fu-row">{chips}</div>',
+                        'color:#c9b8ff;">💡 Suggested follow-ups</div>',
                         unsafe_allow_html=True,
                     )
-
+                    # Render follow-ups as buttons – the "chip-btn" class gives them the same look as the examples.
+                    cols = st.columns(len(followups))
+                    for i, q in enumerate(followups):
+                        with cols[i]:
+                            st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                            st.button(
+                                q,
+                                key=f"fu_{conv_id}_{idx}_{i}",
+                                on_click=_queue_query,
+                                args=(q,),
+                                use_container_width=True,
+                            )
+                            st.markdown('</div>', unsafe_allow_html=True)
 
 # Input box (guarded behind health). Lives outside the chat holder so
 # the input bar position doesn't jump between renders.
