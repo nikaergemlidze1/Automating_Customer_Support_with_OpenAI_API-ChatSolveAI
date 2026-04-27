@@ -13,12 +13,8 @@ Run via Docker (recommended):
 
 from __future__ import annotations
 
-import io
-import json
 import os
-import threading
 import time
-import urllib.parse
 import uuid
 from datetime import datetime
 
@@ -292,20 +288,6 @@ def call_feedback(query: str, answer: str, rating: str) -> bool:
         return False
 
 
-def _fire_and_forget_delete(sid: str) -> None:
-    """Background-thread DELETE — server LRU handles the slot anyway."""
-    def _go():
-        try:
-            requests.delete(
-                f"{API_URL}/chat/session/{sid}",
-                headers=_api_headers(),
-                timeout=5,
-            )
-        except Exception:
-            pass
-    threading.Thread(target=_go, daemon=True).start()
-
-
 # ── Callbacks ─────────────────────────────────────────────────────────────────
 
 
@@ -454,8 +436,6 @@ def submit_query(query: str):
 # ── Reset handler (applied before any UI) ─────────────────────────────────────
 
 def _perform_full_reset():
-    old_sid = st.session_state.get("session_id", "")
-
     # Clear URL params and caches
     try:
         st.query_params.clear()
@@ -476,9 +456,6 @@ def _perform_full_reset():
     for key in list(st.session_state.keys()):
         if isinstance(key, str) and key.startswith(("fb_", "up_", "down_", "fu_", "chip_", "followup_")):
             del st.session_state[key]
-
-    if old_sid:
-        _fire_and_forget_delete(old_sid)
 
 
 # Reset is now triggered directly from the New-chat button handler

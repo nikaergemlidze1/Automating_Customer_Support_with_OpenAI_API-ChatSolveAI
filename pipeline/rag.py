@@ -26,6 +26,7 @@ print(result["answer"])
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -38,6 +39,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
+from .cache import TTLLRUCache
 from .config import OPENAI_API_KEY, EMBED_MODEL, CHAT_MODEL
 
 
@@ -174,6 +176,20 @@ class LangChainRAG:
             streaming=True,
             api_key=OPENAI_API_KEY,
         )
+        self._retrieval_cache = TTLLRUCache[
+            tuple[str, int],
+            list[tuple[Document, float]],
+        ](
+            maxsize=int(os.getenv("RAG_RETRIEVAL_CACHE_SIZE", "256")),
+            ttl_seconds=int(os.getenv("RAG_RETRIEVAL_CACHE_TTL", "900")),
+        )
+        self._suggest_cache = TTLLRUCache[
+            tuple[str, int],
+            list[str],
+        ](
+            maxsize=int(os.getenv("SUGGEST_CACHE_SIZE", "256")),
+            ttl_seconds=int(os.getenv("SUGGEST_CACHE_TTL", "900")),
+        )
 
         # ── Conversation memory (per session_id) ──────────────────────────────
         # OrderedDict gives O(1) move_to_end for LRU eviction.
@@ -223,6 +239,20 @@ class LangChainRAG:
             for i, doc in enumerate(docs)
         )
 
+    def _similarity_search_with_score(
+        self,
+        query: str,
+        k: int = 4,
+    ) -> list[tuple[Document, float]]:
+        """Cached vector search keyed by normalized standalone query."""
+        key = (" ".join(query.lower().split()), int(k))
+        cached = self._retrieval_cache.get(key)
+        if cached is not None:
+            return cached
+        scored = self.vectorstore.similarity_search_with_score(query, k=k)
+        self._retrieval_cache.set(key, scored)
+        return scored
+
     def _update_memory(
         self,
         history: list[BaseMessage],
@@ -263,7 +293,7 @@ class LangChainRAG:
         standalone = self._standalone_question(question, history)
 
         # Retrieve source docs *with similarity scores* for confidence reporting
-        scored = self.vectorstore.similarity_search_with_score(standalone, k=4)
+        scored = self._similarity_search_with_score(standalone, k=4)
         # FAISS returns L2 distance. text-embedding-3-small yields unit-norm
         # vectors, so ||a-b||² = 2 - 2·cos(θ)  ⇒  cos = 1 - L2²/2.
         # That's the true retrieval similarity; clamp for a clean 0–1 meter.
@@ -313,6 +343,11 @@ class LangChainRAG:
 
     def suggest_followups(self, last_answer: str, n: int = 3) -> list[str]:
         """Ask the LLM to generate *n* plausible follow-up questions."""
+        key = (" ".join(last_answer.lower().split()), int(n))
+        cached = self._suggest_cache.get(key)
+        if cached is not None:
+            return cached
+
         prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
@@ -325,7 +360,9 @@ class LangChainRAG:
         ])
         raw = (prompt | self._llm | StrOutputParser()).invoke({"answer": last_answer})
         candidates = [line.strip(" -•*0123456789.") for line in raw.splitlines()]
-        return [c for c in candidates if c][:n]
+        suggestions = [c for c in candidates if c][:n]
+        self._suggest_cache.set(key, suggestions)
+        return suggestions
 
     # ── Public API — async streaming ──────────────────────────────────────────
 
@@ -365,7 +402,7 @@ class LangChainRAG:
         # Mirrors the relevance filter in chat() so the streaming path applies
         # the same "clarify instead of fluff" behaviour on off-topic queries.
         RELEVANCE_L2 = 1.18  # cos ≈ 0.30
-        scored = self.vectorstore.similarity_search_with_score(standalone, k=4)
+        scored = self._similarity_search_with_score(standalone, k=4)
         relevant_docs = [d for d, s in scored if float(s) <= RELEVANCE_L2]
         context = "\n\n".join(
             f"[Source {i + 1}] {doc.page_content}"
@@ -392,7 +429,7 @@ class LangChainRAG:
 
     def similarity_search(self, query: str, k: int = 4) -> list[dict]:
         """Expose vectorstore similarity search for debugging."""
-        docs = self.vectorstore.similarity_search_with_score(query, k=k)
+        docs = self._similarity_search_with_score(query, k=k)
         return [
             {"content": doc.page_content, "score": float(score), "metadata": doc.metadata}
             for doc, score in docs
