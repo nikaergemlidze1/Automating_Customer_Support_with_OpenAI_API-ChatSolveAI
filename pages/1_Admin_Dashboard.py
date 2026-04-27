@@ -4,6 +4,9 @@ from datetime import datetime
 
 st.set_page_config(page_title="ChatSolveAI Admin", page_icon="📊", layout="wide")
 
+# ── Page isolation – mark that we are on the admin page ──────────
+st.session_state["_page"] = "admin"
+
 # Clear any chat state that may have leaked
 for key in ("messages", "pending_query", "last_sources", "last_meta", "followups"):
     st.session_state.pop(key, None)

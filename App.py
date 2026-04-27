@@ -67,12 +67,21 @@ EXAMPLE_QUESTIONS = [
 ]
 
 # ══════════════════════════════════════════════
-# Page setup
+# Page isolation – prevent cross‑page leakage
 # ══════════════════════════════════════════════
 st.set_page_config(page_title="ChatSolveAI", page_icon="🤖", layout="wide",
                    initial_sidebar_state="expanded")
 
-# CSS
+# If we just came from the admin page, do a clean rerun to discard any stale UI
+if st.session_state.get("_page") == "admin":
+    st.session_state["_page"] = "app"
+    st.rerun()
+else:
+    st.session_state["_page"] = "app"
+
+# ══════════════════════════════════════════════
+# CSS (hero gradient, pills, etc.)
+# ══════════════════════════════════════════════
 st.markdown("""<style>
 :root {--accent:#4F8BF9;--accent-2:#8E6BFF;}
 .hero-title{background:linear-gradient(90deg,var(--accent)0%,var(--accent-2)100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;font-size:2rem;margin-bottom:0.2rem}
