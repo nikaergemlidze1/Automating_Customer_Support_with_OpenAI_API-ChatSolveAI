@@ -3,14 +3,14 @@ import requests
 import os
 from datetime import datetime
 
+# ── Page config ─────────────────────────────────────────────────────────
 st.set_page_config(page_title="ChatSolveAI Admin", page_icon="📊", layout="wide")
-st.markdown('<style> [data-testid="stSidebar"] { display: none; } </style>', unsafe_allow_html=True)
-st.session_state.pop("messages", None)
-# ── Clear any lingering chat state (prevents cross‑page pollution) ─────────
-if "pending_query" in st.session_state:
-    st.session_state.pending_query = None
 
-# ── Password gate (optional) ─────────────────────────────────────────────────
+# ── Wipe any chat state that might have drifted over ────────────────────
+for key in ("messages", "pending_query", "last_sources", "last_meta", "followups"):
+    st.session_state.pop(key, None)
+
+# ── Password gate (optional) ────────────────────────────────────────────
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD") or st.secrets.get("ADMIN_PASSWORD", "")
 if ADMIN_PASSWORD:
     if not st.session_state.get("admin_ok"):
@@ -23,14 +23,13 @@ if ADMIN_PASSWORD:
         if submitted and password != ADMIN_PASSWORD:
             st.error("Invalid password.")
         st.stop()
-    # Sign‑out button at top right
-    col1, col2 = st.columns([6, 1])
-    with col2:
+    col_blank, col_btn = st.columns([6, 1])
+    with col_btn:
         if st.button("Sign out"):
             st.session_state.pop("admin_ok")
             st.rerun()
 
-# ── Backend connection ────────────────────────────────────────────────────────
+# ── Backend connection ───────────────────────────────────────────────────
 API_URL = os.getenv("API_URL", "https://Nikollass-chatsolveai-api.hf.space").rstrip("/")
 API_KEY = os.getenv("API_KEY") or st.secrets.get("API_KEY", "")
 
@@ -49,12 +48,24 @@ try:
     latency    = _fetch("/analytics/latency")
     feedback   = _fetch("/analytics/feedback")
     sessions   = _fetch("/sessions?limit=20")
-except Exception as e:
-    st.warning("Backend not reachable – analytics unavailable.")
+except Exception:
+    st.warning("Backend unreachable – analytics unavailable.")
     st.stop()
 
-# ── Metrics row ───────────────────────────────────────────────────────────────
+# ── Hide any leftover chat input (defence in depth) ─────────────────────
+st.markdown(
+    """
+    <style>
+    /* Hide the global chat input if it appears on this page */
+    .stChatInput { display: none !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ── Dashboard UI ─────────────────────────────────────────────────────────
 st.title("ChatSolveAI Admin Dashboard")
+
 c1, c2, c3, c4 = st.columns(4)
 c1.metric("Sessions", summary.get("total_sessions", 0))
 c2.metric("Queries", summary.get("total_queries", 0))
@@ -66,7 +77,6 @@ f1.metric("P95 Latency", f"{latency.get('p95', 0)} ms")
 f2.metric("👍 Upvotes", feedback.get("up", 0))
 f3.metric("👎 Downvotes", feedback.get("down", 0))
 
-# ── Charts ────────────────────────────────────────────────────────────────────
 st.divider()
 left, right = st.columns(2)
 with left:
@@ -82,7 +92,6 @@ with right:
     else:
         st.info("No intent data yet.")
 
-# ── Tables ────────────────────────────────────────────────────────────────────
 st.divider()
 tab1, tab2 = st.tabs(["Top Questions", "Recent Sessions"])
 with tab1:
