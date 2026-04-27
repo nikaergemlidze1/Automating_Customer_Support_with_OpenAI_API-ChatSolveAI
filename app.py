@@ -41,7 +41,7 @@ API_KEY = _SECRET_API_KEY or os.getenv("API_KEY") or ""
 
 HEALTH_TIMEOUT_S = int(os.getenv("API_HEALTH_TIMEOUT", "20"))
 HEALTH_RETRIES   = int(os.getenv("API_HEALTH_RETRIES", "2"))
-USE_STREAMING    = os.getenv("USE_STREAMING", "true").lower() not in {"0", "false", "no"}
+USE_STREAMING    = os.getenv("USE_STREAMING", "false").lower() not in {"0", "false", "no"}
 
 
 def _api_headers() -> dict[str, str]:
