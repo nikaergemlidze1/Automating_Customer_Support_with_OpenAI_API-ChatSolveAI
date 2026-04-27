@@ -3,26 +3,29 @@ import requests, os
 from datetime import datetime
 
 # ══════════════════════════════════════════════
-# Aggressive state cleanup + query param purge
+# Render‑id counter (for container key rotation)
 # ══════════════════════════════════════════════
 if "_admin_render_id" not in st.session_state:
     st.session_state._admin_render_id = 0
 
-# Save the old page BEFORE we wipe anything
+# Capture which page we came from BEFORE we wipe state
 previous_page = st.session_state.get("_page")
 
+# ══════════════════════════════════════════════
+# Aggressive state cleanup + query param purge
+# ══════════════════════════════════════════════
 try:
     st.query_params.clear()
 except: pass
 
-# Wipe every session key except the ones we keep
+# Keep only the two keys we need across page switches
 for key in list(st.session_state.keys()):
     if key not in ("admin_ok", "_admin_render_id"):
         st.session_state.pop(key, None)
 
 st.session_state["_page"] = "admin"
 
-# If we just came from the App page, bump the render ID and rerun
+# If we just arrived from the App page, bump the render id and do a clean rerun
 if previous_page == "app":
     st.session_state._admin_render_id += 1
     st.rerun()
