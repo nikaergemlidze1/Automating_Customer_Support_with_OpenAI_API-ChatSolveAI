@@ -26,6 +26,7 @@ print(result["answer"])
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import AsyncIterator
 
@@ -38,6 +39,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
+from .cache import TTLLRUCache
 from .config import OPENAI_API_KEY, EMBED_MODEL, CHAT_MODEL
 
 
@@ -174,6 +176,20 @@ class LangChainRAG:
             streaming=True,
             api_key=OPENAI_API_KEY,
         )
+        self._retrieval_cache = TTLLRUCache[
+            tuple[str, int],
+            list[tuple[Document, float]],
+        ](
+            maxsize=int(os.getenv("RAG_RETRIEVAL_CACHE_SIZE", "256")),
+            ttl_seconds=int(os.getenv("RAG_RETRIEVAL_CACHE_TTL", "900")),
+        )
+        self._suggest_cache = TTLLRUCache[
+            tuple[str, int],
+            list[str],
+        ](
+            maxsize=int(os.getenv("SUGGEST_CACHE_SIZE", "256")),
+            ttl_seconds=int(os.getenv("SUGGEST_CACHE_TTL", "900")),
+        )
 
         # ── Conversation memory (per session_id) ──────────────────────────────
         # OrderedDict gives O(1) move_to_end for LRU eviction.
@@ -223,6 +239,47 @@ class LangChainRAG:
             for i, doc in enumerate(docs)
         )
 
+    def _similarity_search_with_score(
+        self,
+        query: str,
+        k: int = 4,
+    ) -> list[tuple[Document, float]]:
+        """Cached vector search keyed by normalized standalone query."""
+        key = (" ".join(query.lower().split()), int(k))
+        cached = self._retrieval_cache.get(key)
+        if cached is not None:
+            return cached
+        scored = self.vectorstore.similarity_search_with_score(query, k=k)
+        self._retrieval_cache.set(key, scored)
+        return scored
+
+    @staticmethod
+    def _confidence_from_scored(scored: list[tuple[Document, float]]) -> float:
+        """Convert the top FAISS L2 score into cosine-like confidence."""
+        top_score = float(scored[0][1]) if scored else 2.0
+        return max(0.0, min(1.0, 1.0 - (top_score ** 2) / 2.0))
+
+    @staticmethod
+    def _context_from_scored(scored: list[tuple[Document, float]]) -> str:
+        """Format only plausibly relevant docs as prompt context."""
+        RELEVANCE_L2 = 1.18  # cos ≈ 0.30
+        relevant_docs = [d for d, s in scored if float(s) <= RELEVANCE_L2]
+        return "\n\n".join(
+            f"[Source {i + 1}] {doc.page_content}"
+            for i, doc in enumerate(relevant_docs)
+        ) or "(no relevant context retrieved)"
+
+    @staticmethod
+    def _serialize_scored_docs(scored: list[tuple[Document, float]]) -> list[dict]:
+        return [
+            {
+                "content":  doc.page_content,
+                "metadata": doc.metadata,
+                "score":    float(score),
+            }
+            for doc, score in scored
+        ]
+
     def _update_memory(
         self,
         history: list[BaseMessage],
@@ -263,24 +320,18 @@ class LangChainRAG:
         standalone = self._standalone_question(question, history)
 
         # Retrieve source docs *with similarity scores* for confidence reporting
-        scored = self.vectorstore.similarity_search_with_score(standalone, k=4)
+        scored = self._similarity_search_with_score(standalone, k=4)
         # FAISS returns L2 distance. text-embedding-3-small yields unit-norm
         # vectors, so ||a-b||² = 2 - 2·cos(θ)  ⇒  cos = 1 - L2²/2.
         # That's the true retrieval similarity; clamp for a clean 0–1 meter.
-        top_score = float(scored[0][1]) if scored else 2.0
-        confidence = max(0.0, min(1.0, 1.0 - (top_score ** 2) / 2.0))
+        confidence = self._confidence_from_scored(scored)
 
         # Build the *prompt* context only from docs that are plausibly relevant.
         # Below ~0.30 cosine similarity the doc is almost always off-topic, and
         # feeding it to the LLM triggers polite but unhelpful "here's what I
         # know" style answers. Dropping these docs lets the system prompt's
         # "ask a clarifying question" branch engage cleanly.
-        RELEVANCE_L2 = 1.18  # cos ≈ 0.30
-        relevant_docs = [d for d, s in scored if float(s) <= RELEVANCE_L2]
-        context = "\n\n".join(
-            f"[Source {i+1}] {doc.page_content}"
-            for i, doc in enumerate(relevant_docs)
-        ) or "(no relevant context retrieved)"
+        context = self._context_from_scored(scored)
 
         answer = (
             {
@@ -297,14 +348,7 @@ class LangChainRAG:
 
         return {
             "answer":           answer,
-            "source_documents": [
-                {
-                    "content":  doc.page_content,
-                    "metadata": doc.metadata,
-                    "score":    float(score),
-                }
-                for (doc, score) in scored
-            ],
+            "source_documents": self._serialize_scored_docs(scored),
             "confidence":      confidence,
             "condensed_query": standalone,
         }
@@ -313,6 +357,11 @@ class LangChainRAG:
 
     def suggest_followups(self, last_answer: str, n: int = 3) -> list[str]:
         """Ask the LLM to generate *n* plausible follow-up questions."""
+        key = (" ".join(last_answer.lower().split()), int(n))
+        cached = self._suggest_cache.get(key)
+        if cached is not None:
+            return cached
+
         prompt = ChatPromptTemplate.from_messages([
             (
                 "system",
@@ -325,17 +374,19 @@ class LangChainRAG:
         ])
         raw = (prompt | self._llm | StrOutputParser()).invoke({"answer": last_answer})
         candidates = [line.strip(" -•*0123456789.") for line in raw.splitlines()]
-        return [c for c in candidates if c][:n]
+        suggestions = [c for c in candidates if c][:n]
+        self._suggest_cache.set(key, suggestions)
+        return suggestions
 
     # ── Public API — async streaming ──────────────────────────────────────────
 
-    async def astream(
+    async def astream_response(
         self,
         question: str,
         session_id: str | None = None,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[dict]:
         """
-        Async generator — yields text tokens as they arrive from the LLM.
+        Async generator — yields token events, then one final metadata event.
 
         Uses fully async retrieval (ainvoke) to avoid blocking the event loop,
         and formats the prompt directly to avoid lambda-closure bugs in LCEL.
@@ -362,15 +413,10 @@ class LangChainRAG:
         # Step 2: retrieve context docs. FAISS search is in-process and runs
         # in microseconds, so calling sync similarity_search_with_score from
         # async code is fine (no event-loop blocking of practical concern).
-        # Mirrors the relevance filter in chat() so the streaming path applies
-        # the same "clarify instead of fluff" behaviour on off-topic queries.
-        RELEVANCE_L2 = 1.18  # cos ≈ 0.30
-        scored = self.vectorstore.similarity_search_with_score(standalone, k=4)
-        relevant_docs = [d for d, s in scored if float(s) <= RELEVANCE_L2]
-        context = "\n\n".join(
-            f"[Source {i + 1}] {doc.page_content}"
-            for i, doc in enumerate(relevant_docs)
-        ) or "(no relevant context retrieved)"
+        # Mirrors chat() behaviour for confidence + off-topic context filtering.
+        scored = self._similarity_search_with_score(standalone, k=4)
+        confidence = self._confidence_from_scored(scored)
+        context = self._context_from_scored(scored)
 
         # Step 3: format prompt with real values (no lambdas / closures)
         messages = _QA_PROMPT.format_messages(
@@ -384,15 +430,32 @@ class LangChainRAG:
         async for chunk in self._llm_stream.astream(messages):
             token = chunk.content
             full_answer += token
-            yield token
+            yield {"event": "token", "token": token}
 
         self._update_memory(history, question, full_answer)
+        yield {
+            "event": "final",
+            "answer": full_answer,
+            "source_documents": self._serialize_scored_docs(scored),
+            "confidence": confidence,
+            "condensed_query": standalone,
+        }
+
+    async def astream(
+        self,
+        question: str,
+        session_id: str | None = None,
+    ) -> AsyncIterator[str]:
+        """Backward-compatible token-only stream."""
+        async for event in self.astream_response(question, session_id=session_id):
+            if event.get("event") == "token":
+                yield event.get("token", "")
 
     # ── Utilities ─────────────────────────────────────────────────────────────
 
     def similarity_search(self, query: str, k: int = 4) -> list[dict]:
         """Expose vectorstore similarity search for debugging."""
-        docs = self.vectorstore.similarity_search_with_score(query, k=k)
+        docs = self._similarity_search_with_score(query, k=k)
         return [
             {"content": doc.page_content, "score": float(score), "metadata": doc.metadata}
             for doc, score in docs

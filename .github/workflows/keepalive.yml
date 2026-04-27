@@ -22,7 +22,7 @@ jobs:
           # We don't fail the workflow on a transient hiccup (|| true),
           # but we do log the HTTP code so failed pings are visible.
           STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" -m 30 \
-            "https://automatingcustomersupportwithopenaiapi-chatsolveai.streamlit.app/" || echo "000")
+            "https://chatsolveai.streamlit.app/" || echo "000")
           echo "Streamlit Cloud → HTTP $STATUS"
 
       - name: Ping Hugging Face Spaces backend (/health)
@@ -32,12 +32,19 @@ jobs:
           echo "HF Space /health → HTTP $STATUS"
 
       - name: Warm up the RAG pipeline (one cheap query)
+        env:
+          CHATSOLVEAI_API_KEY: ${{ secrets.CHATSOLVEAI_API_KEY }}
         run: |
           # Sending a real /chat call ensures the FAISS index, embeddings
           # client, and OpenAI client are all instantiated rather than
           # waiting for the first user query to do that work.
+          AUTH_ARGS=()
+          if [ -n "$CHATSOLVEAI_API_KEY" ]; then
+            AUTH_ARGS=(-H "X-API-Key: $CHATSOLVEAI_API_KEY")
+          fi
           curl -L -s -m 60 -X POST \
             -H "Content-Type: application/json" \
+            "${AUTH_ARGS[@]}" \
             -d '{"session_id":"keepalive-cron","query":"hello"}' \
             "https://Nikollass-chatsolveai-api.hf.space/chat" \
             -o /dev/null -w "Warm-up /chat → HTTP %{http_code}, %{time_total}s\n" || true
