@@ -13,7 +13,6 @@ Run via Docker (recommended):
 
 from __future__ import annotations
 
-import html
 import json
 import os
 import time
@@ -452,24 +451,42 @@ def confidence_class(c: float) -> str:
 
 
 def render_meta(meta: dict):
-    """Intent pill + confidence meter + latency."""
+    """Intent pill + confidence meter + latency.
+
+    Pills with zero / missing values are hidden so the UI does not
+    advertise "0% confidence" / "⚡ 0 ms" when the backend stream
+    delivered tokens but lost the trailing metadata SSE event.
+    """
     if not meta:
         return
-    intent = meta.get("intent", "general")
-    info   = INTENT_META.get(intent, INTENT_META["general"])
-    conf   = float(meta.get("confidence", 0.0))
-    lat    = int(meta.get("latency_ms", 0))
-    pill_class = confidence_class(conf)
 
-    st.markdown(
-        f'<div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">'
-        f'  <span class="pill">{info["emoji"]} {info["label"]}</span>'
-        f'  <span class="pill {pill_class}">{int(conf*100)}% confidence</span>'
-        f'  <span class="pill pill-purple">⚡ {lat} ms</span>'
-        f'</div>'
-        f'<div class="meter-wrap"><div class="meter-fill" style="width:{conf*100:.0f}%"></div></div>',
-        unsafe_allow_html=True,
+    intent = meta.get("intent") or "general"
+    info   = INTENT_META.get(intent, INTENT_META["general"])
+    conf   = float(meta.get("confidence", 0.0) or 0.0)
+    lat    = int(meta.get("latency_ms", 0) or 0)
+
+    pills = [f'<span class="pill">{info["emoji"]} {info["label"]}</span>']
+    if conf > 0:
+        pills.append(
+            f'<span class="pill {confidence_class(conf)}">'
+            f'{int(conf * 100)}% confidence</span>'
+        )
+    if lat > 0:
+        pills.append(f'<span class="pill pill-purple">⚡ {lat} ms</span>')
+
+    html_out = (
+        '<div style="margin-top:8px; display:flex; gap:6px; '
+        'flex-wrap:wrap; align-items:center;">'
+        + "".join(pills)
+        + "</div>"
     )
+    if conf > 0:
+        html_out += (
+            '<div class="meter-wrap"><div class="meter-fill" '
+            f'style="width:{conf * 100:.0f}%"></div></div>'
+        )
+
+    st.markdown(html_out, unsafe_allow_html=True)
 
 
 def _similarity_from_l2(l2: float) -> float:
@@ -505,22 +522,33 @@ def render_sources(sources: list[dict]):
 
 
 def render_message_content(msg: dict):
+    """Render a chat bubble's body.
+
+    Assistant content is rendered as markdown (so bullets / **bold** /
+    `code` stay formatted), and the citation superscripts are appended
+    as a separate small markdown block so they don't fight Streamlit's
+    markdown parser.
+    """
     content = msg.get("content", "")
-    if msg.get("role") != "assistant":
+    role    = msg.get("role")
+
+    if role != "assistant":
         st.markdown(content)
         return
+
+    st.markdown(content)
 
     sources = msg.get("sources") or []
     if not sources:
-        st.markdown(content)
         return
 
     markers = " ".join(
-        f"<sup>[{i + 1}]</sup>"
-        for i in range(min(len(sources), 4))
+        f"<sup>[{i + 1}]</sup>" for i in range(min(len(sources), 4))
     )
-    safe_content = html.escape(content).replace("\n", "<br>")
-    st.markdown(f"{safe_content} {markers}", unsafe_allow_html=True)
+    st.markdown(
+        f'<span style="opacity:0.75;">{markers}</span>',
+        unsafe_allow_html=True,
+    )
 
 
 def build_transcript_md() -> str:
