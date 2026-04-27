@@ -2,8 +2,6 @@ import streamlit as st
 import requests, os
 from datetime import datetime
 
-# ── DO NOT call st.set_page_config here – inherits from App.py ──
-
 # ══════════════════════════════════════════════
 # Aggressive state cleanup + query param purge
 # ══════════════════════════════════════════════
@@ -11,13 +9,26 @@ try:
     st.query_params.clear()
 except: pass
 
-# Keep only admin login if set, wipe everything else
 for key in list(st.session_state.keys()):
-    if key not in ("admin_ok",):   # preserve admin password gate
+    if key not in ("admin_ok",):
         st.session_state.pop(key, None)
 
-# Mark that we are on the admin page
 st.session_state["_page"] = "admin"
+
+# ── Clear the sidebar of any App‑page remnants ──────────────────────
+st.sidebar.empty()
+
+# ══════════════════════════════════════════════
+# Hide chat input (it may leak from the App page)
+# ══════════════════════════════════════════════
+st.markdown(
+    """
+    <style>
+    .stChatInput { display: none !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 # ══════════════════════════════════════════════
 # Password gate (optional)
@@ -64,7 +75,7 @@ except Exception:
     st.stop()
 
 # ══════════════════════════════════════════════
-# Dashboard UI (wrapped in container for isolation)
+# Dashboard UI (isolated container)
 # ══════════════════════════════════════════════
 main_container = st.container()
 with main_container:
