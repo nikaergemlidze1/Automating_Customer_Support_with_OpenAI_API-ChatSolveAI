@@ -77,7 +77,7 @@ except Exception:
 # ══════════════════════════════════════════════
 # Dashboard UI (isolated container)
 # ══════════════════════════════════════════════
-main_container = st.container()
+main_container = st.container(key="app_main")
 with main_container:
     st.title("ChatSolveAI Admin Dashboard")
     c1,c2,c3,c4 = st.columns(4)

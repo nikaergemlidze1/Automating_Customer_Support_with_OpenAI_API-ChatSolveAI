@@ -308,7 +308,7 @@ else:
 # ══════════════════════════════════════════════
 # Main chat UI (wrapped in a container)
 # ══════════════════════════════════════════════
-main_container = st.container()
+main_container = st.container(key="admin_main")
 with main_container:
     st.markdown('<div class="hero-title">💬 ChatSolveAI — Customer Support</div>',unsafe_allow_html=True)
     st.markdown('<p class="hero-sub">LangChain RAG · GPT‑3.5‑turbo · MongoDB · FastAPI …</p>',unsafe_allow_html=True)
