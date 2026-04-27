@@ -32,8 +32,11 @@ def _api_headers(): return {"X-API-Key": API_KEY} if API_KEY else {}
 # ══════════════════════════════════════════════
 st.set_page_config(page_title="ChatSolveAI", page_icon="🤖", layout="wide",
                    initial_sidebar_state="expanded")
+
+# ── Render‑id counter (for container key rotation) ─────────────────
 if "_app_render_id" not in st.session_state:
     st.session_state._app_render_id = 0
+
 # ══════════════════════════════════════════════
 # Page isolation guard
 # ══════════════════════════════════════════════
@@ -65,11 +68,23 @@ st.markdown("""<style>
 .chip-btn button:hover{background:rgba(79,139,249,.15)!important;border-color:#4F8BF9!important}
 #MainMenu,footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
+
+# ── Hide any admin dashboard containers that may still be in the DOM ─
+st.markdown(
+    """
+    <style>
+    [data-st-key^="admin_main_"] { display: none !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # Replace the old admin container with an empty one so its charts disappear.
 if st.session_state.get("_clear_admin"):
     st.session_state.pop("_clear_admin")
     if "_admin_render_id" in st.session_state:
         st.container(key=f"admin_main_{st.session_state._admin_render_id}")
+
 # ══════════════════════════════════════════════
 # Session state helpers
 # ══════════════════════════════════════════════
@@ -120,7 +135,7 @@ _adopt_url_session()
 _sync_session_url()
 
 # ══════════════════════════════════════════════
-# API helpers (identical to before)
+# API helpers
 # ══════════════════════════════════════════════
 @st.cache_data(ttl=15,show_spinner=False)
 def api_health():

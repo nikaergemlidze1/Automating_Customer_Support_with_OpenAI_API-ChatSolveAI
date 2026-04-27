@@ -34,6 +34,16 @@ if previous_page == "app":
 # ── Clear the sidebar of any App‑page remnants ──────────────────────
 st.sidebar.empty()
 
+# Hide any app chat containers that may still be in the DOM
+st.markdown(
+    """
+    <style>
+    [data-st-key^="app_main_"] { display: none !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ══════════════════════════════════════════════
 # Hide chat input (it may leak from the App page)
 # ══════════════════════════════════════════════
@@ -90,13 +100,15 @@ except Exception:
     st.warning("Backend unreachable – analytics unavailable.")
     st.stop()
 
-# ══════════════════════════════════════════════
-# Dashboard UI (isolated container, key changes on switch)
-# ══════════════════════════════════════════════
+# Replace the old App container with an empty one so its chat UI disappears.
 if st.session_state.get("_clear_app"):
     st.session_state.pop("_clear_app")
     if "_app_render_id" in st.session_state:
         st.container(key=f"app_main_{st.session_state._app_render_id}")
+
+# ══════════════════════════════════════════════
+# Dashboard UI (isolated container, key changes on switch)
+# ══════════════════════════════════════════════
 main_container = st.container(key=f"admin_main_{st.session_state._admin_render_id}")
 with main_container:
     st.title("ChatSolveAI Admin Dashboard")
