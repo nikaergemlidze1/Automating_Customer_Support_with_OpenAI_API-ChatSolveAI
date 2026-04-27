@@ -5,15 +5,27 @@ from datetime import datetime
 # ══════════════════════════════════════════════
 # Aggressive state cleanup + query param purge
 # ══════════════════════════════════════════════
+if "_admin_render_id" not in st.session_state:
+    st.session_state._admin_render_id = 0
+
+# Save the old page BEFORE we wipe anything
+previous_page = st.session_state.get("_page")
+
 try:
     st.query_params.clear()
 except: pass
 
+# Wipe every session key except the ones we keep
 for key in list(st.session_state.keys()):
-    if key not in ("admin_ok",):
+    if key not in ("admin_ok", "_admin_render_id"):
         st.session_state.pop(key, None)
 
 st.session_state["_page"] = "admin"
+
+# If we just came from the App page, bump the render ID and rerun
+if previous_page == "app":
+    st.session_state._admin_render_id += 1
+    st.rerun()
 
 # ── Clear the sidebar of any App‑page remnants ──────────────────────
 st.sidebar.empty()
@@ -75,9 +87,9 @@ except Exception:
     st.stop()
 
 # ══════════════════════════════════════════════
-# Dashboard UI (isolated container)
+# Dashboard UI (isolated container, key changes on switch)
 # ══════════════════════════════════════════════
-main_container = st.container(key="app_main")
+main_container = st.container(key=f"admin_main_{st.session_state._admin_render_id}")
 with main_container:
     st.title("ChatSolveAI Admin Dashboard")
     c1,c2,c3,c4 = st.columns(4)

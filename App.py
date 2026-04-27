@@ -32,11 +32,13 @@ def _api_headers(): return {"X-API-Key": API_KEY} if API_KEY else {}
 # ══════════════════════════════════════════════
 st.set_page_config(page_title="ChatSolveAI", page_icon="🤖", layout="wide",
                    initial_sidebar_state="expanded")
-
+if "_app_render_id" not in st.session_state:
+    st.session_state._app_render_id = 0
 # ══════════════════════════════════════════════
 # Page isolation guard
 # ══════════════════════════════════════════════
 if st.session_state.get("_page") == "admin":
+    st.session_state._app_render_id += 1
     st.session_state["_page"] = "app"
     st.rerun()
 st.session_state["_page"] = "app"
@@ -308,7 +310,7 @@ else:
 # ══════════════════════════════════════════════
 # Main chat UI (wrapped in a container)
 # ══════════════════════════════════════════════
-main_container = st.container(key="admin_main")
+main_container = st.container(key=f"app_main_{st.session_state._app_render_id}")
 with main_container:
     st.markdown('<div class="hero-title">💬 ChatSolveAI — Customer Support</div>',unsafe_allow_html=True)
     st.markdown('<p class="hero-sub">LangChain RAG · GPT‑3.5‑turbo · MongoDB · FastAPI …</p>',unsafe_allow_html=True)
