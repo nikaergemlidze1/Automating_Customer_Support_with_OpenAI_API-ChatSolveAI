@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 
 st.set_page_config(page_title="ChatSolveAI Admin", page_icon="📊", layout="wide")
+st.markdown('<style> [data-testid="stSidebar"] { display: none; } </style>', unsafe_allow_html=True)
 st.session_state.pop("messages", None)
 # ── Clear any lingering chat state (prevents cross‑page pollution) ─────────
 if "pending_query" in st.session_state:
