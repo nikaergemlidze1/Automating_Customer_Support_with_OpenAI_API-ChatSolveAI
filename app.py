@@ -5,7 +5,7 @@ Calls the FastAPI backend (Hugging Face Space or local) for all AI work.
 Session state is persisted in MongoDB via the API.
 
 Run standalone (API must be running separately):
-    streamlit run app.py
+    streamlit run App.py
 
 Run via Docker (recommended):
     docker compose up --build
@@ -41,7 +41,7 @@ API_KEY = _SECRET_API_KEY or os.getenv("API_KEY") or ""
 
 HEALTH_TIMEOUT_S = int(os.getenv("API_HEALTH_TIMEOUT", "20"))
 HEALTH_RETRIES   = int(os.getenv("API_HEALTH_RETRIES", "2"))
-USE_STREAMING    = os.getenv("USE_STREAMING", "false").lower() not in {"0", "false", "no"}
+USE_STREAMING    = os.getenv("USE_STREAMING", "true").lower() not in {"0", "false", "no"}
 
 
 def _api_headers() -> dict[str, str]:
@@ -770,7 +770,7 @@ else:
     last_idx = len(msgs) - 1
     conv_id  = st.session_state.conv_id
 
-    history_height = min(640, max(280, len(msgs) * 130))
+    history_height = min(900, max(280, len(msgs) * 130))   # larger chat window
     history_container = st.container(height=history_height)
     with history_container:
         for idx, msg in enumerate(msgs):
