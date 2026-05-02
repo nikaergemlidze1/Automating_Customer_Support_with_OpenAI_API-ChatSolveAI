@@ -38,7 +38,7 @@ st.sidebar.empty()
 st.markdown(
     """
     <style>
-    [data-st-key^="app_main_"] { display: none !important; }
+    [class*="st-key-app_main_"] { display: none !important; }
     </style>
     """,
     unsafe_allow_html=True,
