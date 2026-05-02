@@ -1,0 +1,10 @@
+# Path traversal in load_prompt — not exposed to user input in this app.
+# Fix requires langchain-core 1.x (breaking change).
+CVE-2026-34070
+
+# Path traversal via tar archives — app does not extract tar files.
+# Transitive of setuptools.
+CVE-2026-23949
+
+# Privilege escalation via malicious wheel — build-time only, not runtime.
+CVE-2026-24049
