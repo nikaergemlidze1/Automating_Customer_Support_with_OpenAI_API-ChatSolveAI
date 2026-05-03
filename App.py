@@ -360,52 +360,54 @@ def render_chat(sidebar_slot, main_slot):
                 st.warning("Backend cold‑starting … try again in ~30s.")
                 st.session_state.pending_query = None
 
-        # Dedicated placeholder for the start-page area (cards or drill-down).
-        # We always instantiate this slot at the same script position, then
-        # explicitly call .empty() on it BEFORE writing the new content. This
-        # is the only reliable way I've found to make Streamlit drop the
-        # previous run's buttons when the conditional branch changes
-        # (top-level ↔ drill-down ↔ chat-history).
+        # Dedicated placeholder for the start-page / drill-down area.
+        # Wiped + repopulated each rerun so stale buttons don't leak.
         startpage_slot = st.empty()
-        if not st.session_state.messages:
-            conv = st.session_state.conv_id
-            selected_topic = st.session_state.get("selected_topic")
-            # Wipe the slot first; container() below repopulates it.
-            startpage_slot.empty()
+        startpage_slot.empty()
 
-            if selected_topic is None:
-                # Top-level: show 4 topical category cards.
-                with startpage_slot.container():
-                    st.markdown("**👋 What do you need help with?**")
-                    cols = st.columns(2)
-                    for i, (emoji, name, _qs) in enumerate(TOPIC_CATEGORIES):
-                        with cols[i % 2]:
-                            st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                            if st.button(f"{emoji}   {name}", key=f"topic_{conv}_{i}",
-                                         use_container_width=True):
-                                st.session_state["selected_topic"] = i
-                                st.rerun()
-                            st.markdown('</div>', unsafe_allow_html=True)
-            else:
-                # Drill-down: show 3 questions for selected category + back button.
-                emoji, name, questions = TOPIC_CATEGORIES[selected_topic]
-                with startpage_slot.container():
-                    head_cols = st.columns([1, 6])
-                    with head_cols[0]:
-                        if st.button("← Back", key=f"topic_back_{conv}"):
-                            st.session_state.pop("selected_topic", None)
-                            st.rerun()
-                    with head_cols[1]:
-                        st.markdown(f"**{emoji} {name}** — pick a question:")
-                    for i, q in enumerate(questions):
+        conv = st.session_state.conv_id
+        selected_topic = st.session_state.get("selected_topic")
+        msgs = st.session_state.messages
+        # Track which questions in the current topic the user has already asked
+        # so we can hide them from the drill-down list.
+        asked = {m["content"] for m in msgs if m["role"] == "user"}
+
+        if selected_topic is None and not msgs:
+            # Top-level: show 4 topical category cards.
+            with startpage_slot.container():
+                st.markdown("**👋 What do you need help with?**")
+                cols = st.columns(2)
+                for i, (emoji, name, _qs) in enumerate(TOPIC_CATEGORIES):
+                    with cols[i % 2]:
                         st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                        st.button(q, key=f"chip_{conv}_{selected_topic}_{i}",
-                                  use_container_width=True,
-                                  on_click=_queue_query, args=(q,))
+                        if st.button(f"{emoji}   {name}", key=f"topic_{conv}_{i}",
+                                     use_container_width=True):
+                            st.session_state["selected_topic"] = i
+                            st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            startpage_slot.empty()  # No start-page on chat-history view.
-            msgs = st.session_state.messages
+        elif selected_topic is not None:
+            # Drill-down: header + remaining (unasked) questions.
+            emoji, name, questions = TOPIC_CATEGORIES[selected_topic]
+            remaining = [q for q in questions if q not in asked]
+            with startpage_slot.container():
+                head_cols = st.columns([1, 6])
+                with head_cols[0]:
+                    if st.button("← Back", key=f"topic_back_{conv}"):
+                        st.session_state.pop("selected_topic", None)
+                        st.rerun()
+                with head_cols[1]:
+                    if remaining:
+                        st.markdown(f"**{emoji} {name}** — pick a question:")
+                    else:
+                        st.markdown(f"**{emoji} {name}** — all questions asked.")
+                for i, q in enumerate(remaining):
+                    st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                    st.button(q, key=f"chip_{conv}_{selected_topic}_{i}",
+                              use_container_width=True,
+                              on_click=_queue_query, args=(q,))
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+        if msgs:
             conv_id = st.session_state.conv_id
             with st.container(height=520):
                 for idx, msg in enumerate(msgs):
@@ -516,29 +518,22 @@ if view == NAV_ADMIN:
         unsafe_allow_html=True,
     )
 
-# st.empty() placeholders (NOT keyed containers): each rerun, the inactive
-# placeholder is explicitly emptied and the active one is filled. This
-# replaces ALL prior content in the slot rather than relying on Streamlit's
-# key-based reconciliation (which kept stale drill-down buttons alive after
-# "New chat" reset).
-chat_sidebar_slot  = st.sidebar.empty()
-admin_sidebar_slot = st.sidebar.empty()
-chat_main_slot     = st.empty()
-admin_main_slot    = st.empty()
+# Single placeholder per area. The same slot is reused across views — the
+# inactive view's content is fully replaced when we write the new view's
+# content. Using two slots-per-view (chat_main + admin_main) was unreliable
+# because Streamlit's element protocol kept the inactive slot's prior
+# children alive across reruns even after .empty() was called.
+sidebar_slot = st.sidebar.empty()
+main_slot    = st.empty()
+
+# Wipe both slots first, then write the active view's content. Calling
+# .empty() and then .container() on the SAME slot reliably drops the
+# previous run's DOM (this is the same pattern that fixes drill-down
+# button leakage on "New chat" reset).
+sidebar_slot.empty()
+main_slot.empty()
 
 if view == NAV_CHAT:
-    # Reclaim each inactive slot with a fresh empty container — calling
-    # only .empty() doesn't actually drop the prior run's DOM (same
-    # Streamlit reconciliation quirk that bit us with the drill-down
-    # buttons). Writing a new container to the slot forces replacement.
-    admin_sidebar_slot.empty()
-    admin_main_slot.empty()
-    with admin_sidebar_slot.container(): pass
-    with admin_main_slot.container(): pass
-    render_chat(chat_sidebar_slot.container(), chat_main_slot.container())
+    render_chat(sidebar_slot.container(), main_slot.container())
 else:
-    chat_sidebar_slot.empty()
-    chat_main_slot.empty()
-    with chat_sidebar_slot.container(): pass
-    with chat_main_slot.container(): pass
-    render_admin(admin_sidebar_slot.container(), admin_main_slot.container())
+    render_admin(sidebar_slot.container(), main_slot.container())
