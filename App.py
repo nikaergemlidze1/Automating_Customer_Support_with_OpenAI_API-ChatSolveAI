@@ -302,10 +302,6 @@ def _perform_full_reset():
     st.session_state["history_loaded_for"] = None
     st.session_state.pop("followups",None)
     st.session_state.pop("selected_topic",None)
-    # Bump render-id so the main container gets a fresh key — forces
-    # Streamlit to drop any stale drill-down button DOM from the previous
-    # topic. Without this, old "How do I …" buttons linger after reset.
-    st.session_state["_render_id"] = st.session_state.get("_render_id", 0) + 1
     _sync_session_url()
     for k in list(st.session_state.keys()):
         if isinstance(k,str) and k.startswith(("fb_","up_","down_","fu_","chip_")):
@@ -497,43 +493,33 @@ def render_admin(sidebar_slot, main_slot):
 # ══════════════════════════════════════════════
 # Dispatch
 # ──────────────────────────────────────────────
-# Both view containers are created on EVERY run, but only the active
-# one is filled with content. This forces Streamlit's element protocol
-# to replace the inactive container's prior contents with an empty
-# subtree (otherwise stale tabs / charts / etc. persist when the user
-# toggles back and forth).
-#
-# CSS-hide on the inactive container is belt-and-suspenders.
-# Also: st.chat_input docks to the page body, NOT inside containers,
-# so we hide it explicitly when on the admin view.
+# Each view writes into its own st.empty() placeholder. The inactive
+# placeholder is explicitly emptied so no stale DOM remains.
+# st.chat_input docks to the page body (outside any container), so we
+# hide it via CSS when on the admin view.
 # ══════════════════════════════════════════════
-_INACTIVE = "admin" if view == NAV_CHAT else "chat"
-_hide_css = f"""
-<style>
-[class*="st-key-view_{_INACTIVE}_"] {{ display: none !important; }}
-"""
 if view == NAV_ADMIN:
-    # Chat input docks globally — must be hidden by its testid, not key.
-    _hide_css += "[data-testid='stChatInput'] { display: none !important; }\n"
-_hide_css += "</style>"
-st.markdown(_hide_css, unsafe_allow_html=True)
+    st.markdown(
+        "<style>[data-testid='stChatInput']{display:none !important;}</style>",
+        unsafe_allow_html=True,
+    )
 
-# Render-id rotates on "New chat" / session reset so the chat container
-# gets a fresh key — Streamlit otherwise keeps stale drill-down buttons
-# (from the previous topic) alive in the DOM via element reuse.
-_rid = st.session_state.setdefault("_render_id", 0)
-
-# Pre-create both sidebar slots (in fixed order) so Streamlit replaces
-# the inactive one with empty content on every rerun.
-with st.sidebar:
-    chat_sidebar_slot = st.container(key=f"view_chat_sidebar_{_rid}")
-    admin_sidebar_slot = st.container(key="view_admin_sidebar")
-
-# Pre-create both main slots in the body for the same reason.
-chat_main_slot = st.container(key=f"view_chat_main_{_rid}")
-admin_main_slot = st.container(key="view_admin_main")
+# st.empty() placeholders (NOT keyed containers): each rerun, the inactive
+# placeholder is explicitly emptied and the active one is filled. This
+# replaces ALL prior content in the slot rather than relying on Streamlit's
+# key-based reconciliation (which kept stale drill-down buttons alive after
+# "New chat" reset).
+chat_sidebar_slot  = st.sidebar.empty()
+admin_sidebar_slot = st.sidebar.empty()
+chat_main_slot     = st.empty()
+admin_main_slot    = st.empty()
 
 if view == NAV_CHAT:
-    render_chat(chat_sidebar_slot, chat_main_slot)
+    # Clear the inactive view's placeholders explicitly.
+    admin_sidebar_slot.empty()
+    admin_main_slot.empty()
+    render_chat(chat_sidebar_slot.container(), chat_main_slot.container())
 else:
-    render_admin(admin_sidebar_slot, admin_main_slot)
+    chat_sidebar_slot.empty()
+    chat_main_slot.empty()
+    render_admin(admin_sidebar_slot.container(), admin_main_slot.container())
