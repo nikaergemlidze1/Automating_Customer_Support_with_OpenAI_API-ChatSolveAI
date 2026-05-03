@@ -507,33 +507,34 @@ def render_admin(sidebar_slot, main_slot):
 # ══════════════════════════════════════════════
 # Dispatch
 # ──────────────────────────────────────────────
-# Each view writes into its own st.empty() placeholder. The inactive
-# placeholder is explicitly emptied so no stale DOM remains.
-# st.chat_input docks to the page body (outside any container), so we
-# hide it via CSS when on the admin view.
+# Each view writes into a container whose key changes with the view name
+# (sb_chat / sb_admin / main_chat / main_admin). On view-toggle, a CSS
+# rule hides the *other* view's container as a belt-and-suspenders guard
+# in case Streamlit reuses the prior subtree.
+# st.chat_input docks to the body, so we hide it via testid in admin view.
 # ══════════════════════════════════════════════
-if view == NAV_ADMIN:
-    st.markdown(
-        "<style>[data-testid='stChatInput']{display:none !important;}</style>",
-        unsafe_allow_html=True,
-    )
+_inactive = "admin" if view == NAV_CHAT else "chat"
+_extra = "[data-testid='stChatInput']{display:none !important;}" if view == NAV_ADMIN else ""
+st.markdown(
+    f"<style>"
+    f"[class*='st-key-sb_{_inactive}'],"
+    f"[class*='st-key-main_{_inactive}']{{display:none !important;}}"
+    f"{_extra}"
+    f"</style>",
+    unsafe_allow_html=True,
+)
 
-# Single placeholder per area. The same slot is reused across views — the
-# inactive view's content is fully replaced when we write the new view's
-# content. Using two slots-per-view (chat_main + admin_main) was unreliable
-# because Streamlit's element protocol kept the inactive slot's prior
-# children alive across reruns even after .empty() was called.
-sidebar_slot = st.sidebar.empty()
-main_slot    = st.empty()
-
-# Wipe both slots first, then write the active view's content. Calling
-# .empty() and then .container() on the SAME slot reliably drops the
-# previous run's DOM (this is the same pattern that fixes drill-down
-# button leakage on "New chat" reset).
-sidebar_slot.empty()
-main_slot.empty()
+# Each view writes into a container whose KEY changes with the view name.
+# Different key on view-toggle = different container identity = Streamlit
+# drops the prior view's subtree instead of merging into it. (st.empty()
+# placeholders + .empty() calls were not enough — inactive view's DOM
+# kept leaking through.)
+view_id = "chat" if view == NAV_CHAT else "admin"
+with st.sidebar:
+    sidebar_ctx = st.container(key=f"sb_{view_id}")
+main_ctx = st.container(key=f"main_{view_id}")
 
 if view == NAV_CHAT:
-    render_chat(sidebar_slot.container(), main_slot.container())
+    render_chat(sidebar_ctx, main_ctx)
 else:
-    render_admin(sidebar_slot.container(), main_slot.container())
+    render_admin(sidebar_ctx, main_ctx)
