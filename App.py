@@ -367,10 +367,17 @@ def render_chat(sidebar_slot, main_slot):
         # so we can hide them from the drill-down list.
         asked = {m["content"] for m in msgs if m["role"] == "user"}
 
-        # State-derived container key. Each distinct start-page state owns
-        # its own slot; when state changes (e.g. drill_0 -> cards on Back),
-        # the prior key is no longer referenced and Streamlit drops its
-        # children. This avoids stale chip buttons leaking across renders.
+        # Render-token bumped on every state transition. Embedded in every
+        # start-page container + widget key so each transition produces an
+        # entirely fresh widget tree — Streamlit cannot keep stale chips or
+        # cards alive when none of their old keys are re-referenced.
+        if "sp_token" not in st.session_state:
+            st.session_state["sp_token"] = 0
+        sp_token = st.session_state["sp_token"]
+
+        def _bump_sp():
+            st.session_state["sp_token"] = st.session_state.get("sp_token", 0) + 1
+
         if selected_topic is None and not msgs:
             sp_state = "cards"
         elif selected_topic is not None:
@@ -379,29 +386,29 @@ def render_chat(sidebar_slot, main_slot):
             sp_state = None
 
         if sp_state == "cards":
-            with st.container(key=f"startpage_{conv}_cards"):
+            with st.container(key=f"sp_{conv}_{sp_token}_cards"):
                 st.markdown("**👋 What do you need help with?**")
                 cols = st.columns(2)
                 for i, (emoji, name, _qs) in enumerate(TOPIC_CATEGORIES):
                     with cols[i % 2]:
                         st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                        if st.button(f"{emoji}   {name}", key=f"topic_{conv}_{i}",
+                        if st.button(f"{emoji}   {name}",
+                                     key=f"topic_{conv}_{sp_token}_{i}",
                                      use_container_width=True):
                             st.session_state["selected_topic"] = i
+                            _bump_sp()
                             st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
         elif sp_state and sp_state.startswith("drill_"):
             emoji, name, questions = TOPIC_CATEGORIES[selected_topic]
             remaining = [q for q in questions if q not in asked]
-            with st.container(key=f"startpage_{conv}_{sp_state}"):
+            with st.container(key=f"sp_{conv}_{sp_token}_{sp_state}"):
                 head_cols = st.columns([1, 6])
                 with head_cols[0]:
-                    if st.button("← Back", key=f"topic_back_{conv}_{selected_topic}"):
+                    if st.button("← Back",
+                                 key=f"topic_back_{conv}_{sp_token}_{selected_topic}"):
                         st.session_state.pop("selected_topic", None)
-                        # Clear chip widget state so old keys can't resurface.
-                        for k in list(st.session_state.keys()):
-                            if isinstance(k, str) and k.startswith(f"chip_{conv}_"):
-                                del st.session_state[k]
+                        _bump_sp()
                         st.rerun()
                 with head_cols[1]:
                     if remaining:
@@ -410,7 +417,7 @@ def render_chat(sidebar_slot, main_slot):
                         st.markdown(f"**{emoji} {name}** — all questions asked.")
                 for i, q in enumerate(remaining):
                     st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                    st.button(q, key=f"chip_{conv}_{selected_topic}_{i}",
+                    st.button(q, key=f"chip_{conv}_{sp_token}_{selected_topic}_{i}",
                               use_container_width=True,
                               on_click=_queue_query, args=(q,))
                     st.markdown('</div>', unsafe_allow_html=True)
