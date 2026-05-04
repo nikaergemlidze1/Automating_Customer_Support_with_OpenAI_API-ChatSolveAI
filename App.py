@@ -364,25 +364,27 @@ def render_chat(sidebar_slot, main_slot):
         msgs = st.session_state.messages
         asked = {m["content"] for m in msgs if m["role"] == "user"}
 
-        # Use st.expander per category — collapsed by default, click to
-        # reveal that category's questions, click again to collapse. This
-        # removes the drill-state machine entirely: no state transitions,
-        # no Back button, no separate widget tree to unmount, so stale
-        # chips cannot leak across renders.
+        # st.expander per category — always visible, collapsed by default.
+        # Click to reveal that category's still-unanswered questions; click
+        # a question to ask it. After all questions in a category are
+        # answered, the expander shows a caption instead of buttons.
+        # Widget keys include msg-count so each rerun after a submit
+        # produces fresh button keys, eliminating any stale-DOM risk.
         if not msgs:
             st.markdown("**👋 What do you need help with?**")
-            for i, (emoji, name, questions) in enumerate(TOPIC_CATEGORIES):
-                remaining = [q for q in questions if q not in asked]
-                with st.expander(f"{emoji}   {name}", expanded=False):
-                    for j, q in enumerate(remaining):
-                        st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                        if st.button(q, key=f"chip_{conv}_{i}_{j}",
-                                     use_container_width=True):
-                            _queue_query(q)
-                            st.rerun()
-                        st.markdown('</div>', unsafe_allow_html=True)
-                    if not remaining:
-                        st.caption("All questions in this topic asked.")
+        ask_round = len([m for m in msgs if m["role"] == "user"])
+        for i, (emoji, name, questions) in enumerate(TOPIC_CATEGORIES):
+            remaining = [q for q in questions if q not in asked]
+            with st.expander(f"{emoji}   {name}", expanded=False):
+                for j, q in enumerate(remaining):
+                    st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                    if st.button(q, key=f"chip_{conv}_r{ask_round}_{i}_{j}",
+                                 use_container_width=True):
+                        _queue_query(q)
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+                if not remaining:
+                    st.caption("All questions in this topic asked.")
 
         if msgs:
             conv_id = st.session_state.conv_id
