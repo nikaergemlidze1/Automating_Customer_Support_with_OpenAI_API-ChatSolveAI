@@ -325,7 +325,7 @@ def render_chat(sidebar_slot, main_slot):
     _sync_session_url()
 
     with sidebar_slot:
-        st.image("https://img.icons8.com/fluency/96/chatbot.png", width=64)
+        st.image("logo/Logo.png", width=96)
         st.title("ChatSolveAI")
         st.caption("LangChain · FAISS · GPT‑3.5‑turbo\nMongoDB · FastAPI · Docker · HF Spaces")
         st.divider()
@@ -360,52 +360,31 @@ def render_chat(sidebar_slot, main_slot):
                 st.warning("Backend cold‑starting … try again in ~30s.")
                 st.session_state.pending_query = None
 
-        # Dedicated placeholder for the start-page / drill-down area.
-        # Wiped + repopulated each rerun so stale buttons don't leak.
-        startpage_slot = st.empty()
-        startpage_slot.empty()
-
         conv = st.session_state.conv_id
-        selected_topic = st.session_state.get("selected_topic")
         msgs = st.session_state.messages
-        # Track which questions in the current topic the user has already asked
-        # so we can hide them from the drill-down list.
         asked = {m["content"] for m in msgs if m["role"] == "user"}
 
-        if selected_topic is None and not msgs:
-            # Top-level: show 4 topical category cards.
-            with startpage_slot.container():
-                st.markdown("**👋 What do you need help with?**")
-                cols = st.columns(2)
-                for i, (emoji, name, _qs) in enumerate(TOPIC_CATEGORIES):
-                    with cols[i % 2]:
-                        st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                        if st.button(f"{emoji}   {name}", key=f"topic_{conv}_{i}",
-                                     use_container_width=True):
-                            st.session_state["selected_topic"] = i
-                            st.rerun()
-                        st.markdown('</div>', unsafe_allow_html=True)
-        elif selected_topic is not None:
-            # Drill-down: header + remaining (unasked) questions.
-            emoji, name, questions = TOPIC_CATEGORIES[selected_topic]
+        # st.expander per category — always visible, collapsed by default.
+        # Click to reveal that category's still-unanswered questions; click
+        # a question to ask it. After all questions in a category are
+        # answered, the expander shows a caption instead of buttons.
+        # Widget keys include msg-count so each rerun after a submit
+        # produces fresh button keys, eliminating any stale-DOM risk.
+        if not msgs:
+            st.markdown("**👋 What do you need help with?**")
+        ask_round = len([m for m in msgs if m["role"] == "user"])
+        for i, (emoji, name, questions) in enumerate(TOPIC_CATEGORIES):
             remaining = [q for q in questions if q not in asked]
-            with startpage_slot.container():
-                head_cols = st.columns([1, 6])
-                with head_cols[0]:
-                    if st.button("← Back", key=f"topic_back_{conv}"):
-                        st.session_state.pop("selected_topic", None)
-                        st.rerun()
-                with head_cols[1]:
-                    if remaining:
-                        st.markdown(f"**{emoji} {name}** — pick a question:")
-                    else:
-                        st.markdown(f"**{emoji} {name}** — all questions asked.")
-                for i, q in enumerate(remaining):
+            with st.expander(f"{emoji}   {name}", expanded=False):
+                for j, q in enumerate(remaining):
                     st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                    st.button(q, key=f"chip_{conv}_{selected_topic}_{i}",
-                              use_container_width=True,
-                              on_click=_queue_query, args=(q,))
+                    if st.button(q, key=f"chip_{conv}_r{ask_round}_{i}_{j}",
+                                 use_container_width=True):
+                        _queue_query(q)
+                        st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
+                if not remaining:
+                    st.caption("All questions in this topic asked.")
 
         if msgs:
             conv_id = st.session_state.conv_id
