@@ -367,17 +367,11 @@ def render_chat(sidebar_slot, main_slot):
         # so we can hide them from the drill-down list.
         asked = {m["content"] for m in msgs if m["role"] == "user"}
 
-        # Render-token bumped on every state transition. Embedded in every
-        # start-page container + widget key so each transition produces an
-        # entirely fresh widget tree — Streamlit cannot keep stale chips or
-        # cards alive when none of their old keys are re-referenced.
-        if "sp_token" not in st.session_state:
-            st.session_state["sp_token"] = 0
-        sp_token = st.session_state["sp_token"]
-
-        def _bump_sp():
-            st.session_state["sp_token"] = st.session_state.get("sp_token", 0) + 1
-
+        # Render the start-page via st.form. Forms scope their widgets so
+        # that when the form's content changes (cards <-> drill), Streamlit
+        # tears down ALL prior widgets in the form before rendering new
+        # ones. Plain containers leak chips across renders on Streamlit
+        # Cloud; forms reliably do not.
         if selected_topic is None and not msgs:
             sp_state = "cards"
         elif selected_topic is not None:
@@ -385,42 +379,49 @@ def render_chat(sidebar_slot, main_slot):
         else:
             sp_state = None
 
+        # Single form whose key encodes the current state. When state
+        # changes (e.g. drill_0 -> cards on Back), the form's stable id
+        # changes, so Streamlit unmounts the old form and remounts a fresh
+        # one — eliminating any chance of stale widget DOM from prior view.
         if sp_state == "cards":
-            with st.container(key=f"sp_{conv}_{sp_token}_cards"):
+            with st.form(key=f"sp_form_{conv}_cards", clear_on_submit=False, border=False):
                 st.markdown("**👋 What do you need help with?**")
                 cols = st.columns(2)
+                clicked_topic = None
                 for i, (emoji, name, _qs) in enumerate(TOPIC_CATEGORIES):
                     with cols[i % 2]:
                         st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                        if st.button(f"{emoji}   {name}",
-                                     key=f"topic_{conv}_{sp_token}_{i}",
-                                     use_container_width=True):
-                            st.session_state["selected_topic"] = i
-                            _bump_sp()
-                            st.rerun()
+                        if st.form_submit_button(f"{emoji}   {name}",
+                                                 use_container_width=True):
+                            clicked_topic = i
                         st.markdown('</div>', unsafe_allow_html=True)
+                if clicked_topic is not None:
+                    st.session_state["selected_topic"] = clicked_topic
+                    st.rerun()
         elif sp_state and sp_state.startswith("drill_"):
             emoji, name, questions = TOPIC_CATEGORIES[selected_topic]
             remaining = [q for q in questions if q not in asked]
-            with st.container(key=f"sp_{conv}_{sp_token}_{sp_state}"):
+            with st.form(key=f"sp_form_{conv}_{sp_state}", clear_on_submit=False, border=False):
                 head_cols = st.columns([1, 6])
                 with head_cols[0]:
-                    if st.button("← Back",
-                                 key=f"topic_back_{conv}_{sp_token}_{selected_topic}"):
-                        st.session_state.pop("selected_topic", None)
-                        _bump_sp()
-                        st.rerun()
+                    back_clicked = st.form_submit_button("← Back")
                 with head_cols[1]:
                     if remaining:
                         st.markdown(f"**{emoji} {name}** — pick a question:")
                     else:
                         st.markdown(f"**{emoji} {name}** — all questions asked.")
+                clicked_q = None
                 for i, q in enumerate(remaining):
                     st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                    st.button(q, key=f"chip_{conv}_{sp_token}_{selected_topic}_{i}",
-                              use_container_width=True,
-                              on_click=_queue_query, args=(q,))
+                    if st.form_submit_button(q, use_container_width=True):
+                        clicked_q = q
                     st.markdown('</div>', unsafe_allow_html=True)
+                if back_clicked:
+                    st.session_state.pop("selected_topic", None)
+                    st.rerun()
+                if clicked_q is not None:
+                    _queue_query(clicked_q)
+                    st.rerun()
 
         if msgs:
             conv_id = st.session_state.conv_id
