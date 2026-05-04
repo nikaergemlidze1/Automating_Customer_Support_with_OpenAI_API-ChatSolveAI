@@ -361,67 +361,28 @@ def render_chat(sidebar_slot, main_slot):
                 st.session_state.pending_query = None
 
         conv = st.session_state.conv_id
-        selected_topic = st.session_state.get("selected_topic")
         msgs = st.session_state.messages
-        # Track which questions in the current topic the user has already asked
-        # so we can hide them from the drill-down list.
         asked = {m["content"] for m in msgs if m["role"] == "user"}
 
-        # Render the start-page via st.form. Forms scope their widgets so
-        # that when the form's content changes (cards <-> drill), Streamlit
-        # tears down ALL prior widgets in the form before rendering new
-        # ones. Plain containers leak chips across renders on Streamlit
-        # Cloud; forms reliably do not.
-        if selected_topic is None and not msgs:
-            sp_state = "cards"
-        elif selected_topic is not None:
-            sp_state = f"drill_{selected_topic}"
-        else:
-            sp_state = None
-
-        # Single form whose key encodes the current state. When state
-        # changes (e.g. drill_0 -> cards on Back), the form's stable id
-        # changes, so Streamlit unmounts the old form and remounts a fresh
-        # one — eliminating any chance of stale widget DOM from prior view.
-        if sp_state == "cards":
-            with st.form(key=f"sp_form_{conv}_cards", clear_on_submit=False, border=False):
-                st.markdown("**👋 What do you need help with?**")
-                cols = st.columns(2)
-                clicked_topic = None
-                for i, (emoji, name, _qs) in enumerate(TOPIC_CATEGORIES):
-                    with cols[i % 2]:
+        # Use st.expander per category — collapsed by default, click to
+        # reveal that category's questions, click again to collapse. This
+        # removes the drill-state machine entirely: no state transitions,
+        # no Back button, no separate widget tree to unmount, so stale
+        # chips cannot leak across renders.
+        if not msgs:
+            st.markdown("**👋 What do you need help with?**")
+            for i, (emoji, name, questions) in enumerate(TOPIC_CATEGORIES):
+                remaining = [q for q in questions if q not in asked]
+                with st.expander(f"{emoji}   {name}", expanded=False):
+                    for j, q in enumerate(remaining):
                         st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                        if st.form_submit_button(f"{emoji}   {name}",
-                                                 use_container_width=True):
-                            clicked_topic = i
+                        if st.button(q, key=f"chip_{conv}_{i}_{j}",
+                                     use_container_width=True):
+                            _queue_query(q)
+                            st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
-                if clicked_topic is not None:
-                    st.session_state["selected_topic"] = clicked_topic
-                    st.rerun()
-        elif sp_state and sp_state.startswith("drill_"):
-            emoji, name, questions = TOPIC_CATEGORIES[selected_topic]
-            remaining = [q for q in questions if q not in asked]
-            with st.form(key=f"sp_form_{conv}_{sp_state}", clear_on_submit=False, border=False):
-                head_cols = st.columns([1, 6])
-                with head_cols[0]:
-                    back_clicked = st.form_submit_button("← Back")
-                with head_cols[1]:
-                    if remaining:
-                        st.markdown(f"**{emoji} {name}** — pick a question:")
-                    else:
-                        st.markdown(f"**{emoji} {name}** — all questions asked.")
-                clicked_q = None
-                for i, q in enumerate(remaining):
-                    st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                    if st.form_submit_button(q, use_container_width=True):
-                        clicked_q = q
-                    st.markdown('</div>', unsafe_allow_html=True)
-                if back_clicked:
-                    st.session_state.pop("selected_topic", None)
-                    st.rerun()
-                if clicked_q is not None:
-                    _queue_query(clicked_q)
-                    st.rerun()
+                    if not remaining:
+                        st.caption("All questions in this topic asked.")
 
         if msgs:
             conv_id = st.session_state.conv_id
