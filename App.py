@@ -360,11 +360,6 @@ def render_chat(sidebar_slot, main_slot):
                 st.warning("Backend cold‑starting … try again in ~30s.")
                 st.session_state.pending_query = None
 
-        # Dedicated placeholder for the start-page / drill-down area.
-        # Wiped + repopulated each rerun so stale buttons don't leak.
-        startpage_slot = st.empty()
-        startpage_slot.empty()
-
         conv = st.session_state.conv_id
         selected_topic = st.session_state.get("selected_topic")
         msgs = st.session_state.messages
@@ -372,9 +367,19 @@ def render_chat(sidebar_slot, main_slot):
         # so we can hide them from the drill-down list.
         asked = {m["content"] for m in msgs if m["role"] == "user"}
 
+        # State-derived container key. Each distinct start-page state owns
+        # its own slot; when state changes (e.g. drill_0 -> cards on Back),
+        # the prior key is no longer referenced and Streamlit drops its
+        # children. This avoids stale chip buttons leaking across renders.
         if selected_topic is None and not msgs:
-            # Top-level: show 4 topical category cards.
-            with startpage_slot.container():
+            sp_state = "cards"
+        elif selected_topic is not None:
+            sp_state = f"drill_{selected_topic}"
+        else:
+            sp_state = None
+
+        if sp_state == "cards":
+            with st.container(key=f"startpage_{conv}_cards"):
                 st.markdown("**👋 What do you need help with?**")
                 cols = st.columns(2)
                 for i, (emoji, name, _qs) in enumerate(TOPIC_CATEGORIES):
@@ -385,15 +390,18 @@ def render_chat(sidebar_slot, main_slot):
                             st.session_state["selected_topic"] = i
                             st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
-        elif selected_topic is not None:
-            # Drill-down: header + remaining (unasked) questions.
+        elif sp_state and sp_state.startswith("drill_"):
             emoji, name, questions = TOPIC_CATEGORIES[selected_topic]
             remaining = [q for q in questions if q not in asked]
-            with startpage_slot.container():
+            with st.container(key=f"startpage_{conv}_{sp_state}"):
                 head_cols = st.columns([1, 6])
                 with head_cols[0]:
-                    if st.button("← Back", key=f"topic_back_{conv}"):
+                    if st.button("← Back", key=f"topic_back_{conv}_{selected_topic}"):
                         st.session_state.pop("selected_topic", None)
+                        # Clear chip widget state so old keys can't resurface.
+                        for k in list(st.session_state.keys()):
+                            if isinstance(k, str) and k.startswith(f"chip_{conv}_"):
+                                del st.session_state[k]
                         st.rerun()
                 with head_cols[1]:
                     if remaining:
