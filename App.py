@@ -325,7 +325,7 @@ def render_chat(sidebar_slot, main_slot):
     _sync_session_url()
 
     with sidebar_slot:
-        st.image("logo/Logo.png", width=128)
+        st.image("logo/Logo.png", width=160)
         st.title("ChatSolveAI")
         st.caption("LangChain · FAISS · GPT‑3.5‑turbo\nMongoDB · FastAPI · Docker · HF Spaces")
         st.divider()
