@@ -389,7 +389,7 @@ def render_chat(sidebar_slot, main_slot):
             with c_icon:
                 st.markdown(
                     f'<img src="data:image/png;base64,{_img_b64(icon_path)}" '
-                    f'style="width:96px;height:96px;'
+                    f'style="width:120px;height:120px;'
                     f'object-fit:contain;display:block;">',
                     unsafe_allow_html=True,
                 )
