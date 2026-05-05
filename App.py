@@ -102,22 +102,22 @@ EXAMPLE_QUESTIONS = [
 # Topical groupings for the start-page quick-question UI.
 # Each category expands into 3 representative questions on click.
 TOPIC_CATEGORIES = [
-    ("🔐", "Account", [
+    ("logo/account_icon.png", "Account", [
         "How do I reset my password?",
         "How do I unlock my account?",
         "How do I enable two-factor authentication?",
     ]),
-    ("📦", "Orders", [
+    ("logo/orders_icon.png", "Orders", [
         "Where is my order?",
         "How long does delivery take?",
         "Can I cancel my order after it has shipped?",
     ]),
-    ("💳", "Refunds", [
+    ("logo/refunds_icon.png", "Refunds", [
         "How do I get a refund?",
         "What is your refund policy?",
         "How long does a refund take to process?",
     ]),
-    ("🚫", "Subscription", [
+    ("logo/subscription_icon.png", "Subscription", [
         "How do I cancel my subscription?",
         "How do I update my payment method?",
         "Where can I view my billing history?",
@@ -373,18 +373,22 @@ def render_chat(sidebar_slot, main_slot):
         if not msgs:
             st.markdown("**👋 What do you need help with?**")
         ask_round = len([m for m in msgs if m["role"] == "user"])
-        for i, (emoji, name, questions) in enumerate(TOPIC_CATEGORIES):
+        for i, (icon_path, name, questions) in enumerate(TOPIC_CATEGORIES):
             remaining = [q for q in questions if q not in asked]
-            with st.expander(f"{emoji}   {name}", expanded=False):
-                for j, q in enumerate(remaining):
-                    st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                    if st.button(q, key=f"chip_{conv}_r{ask_round}_{i}_{j}",
-                                 use_container_width=True):
-                        _queue_query(q)
-                        st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
-                if not remaining:
-                    st.caption("All questions in this topic asked.")
+            c_icon, c_exp = st.columns([1, 9], vertical_alignment="center")
+            with c_icon:
+                st.image(icon_path, width=44)
+            with c_exp:
+                with st.expander(name, expanded=False):
+                    for j, q in enumerate(remaining):
+                        st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                        if st.button(q, key=f"chip_{conv}_r{ask_round}_{i}_{j}",
+                                     use_container_width=True):
+                            _queue_query(q)
+                            st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    if not remaining:
+                        st.caption("All questions in this topic asked.")
 
         if msgs:
             conv_id = st.session_state.conv_id
