@@ -371,78 +371,85 @@ def render_chat(sidebar_slot, main_slot):
         if not msgs:
             st.markdown("**👋 What do you need help with?**")
         for i, (icon_path, name, questions) in enumerate(TOPIC_CATEGORIES):
-            c_icon, c_exp = st.columns([1, 9], vertical_alignment="center")
-            with c_icon:
-                st.markdown(
-                    f'<img src="data:image/png;base64,{_img_b64(icon_path)}" '
-                    f'style="width:96px;height:96px;'
-                    f'object-fit:contain;display:block;">',
-                    unsafe_allow_html=True,
-                )
-            with c_exp:
-                with st.expander(name, expanded=False):
-                    rendered = 0
-                    # Iterate the ORIGINAL questions list, skipping asked
-                    # ones. Widget keys use the original index `j` so each
-                    # question owns a stable key — Streamlit reuses the
-                    # same widget across reruns instead of accumulating
-                    # duplicates.
-                    for j, q in enumerate(questions):
-                        if q in asked:
-                            continue
-                        st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                        if st.button(q, key=f"chip_{conv}_{i}_{j}",
-                                     use_container_width=True):
-                            _queue_query(q)
-                            st.rerun()
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        rendered += 1
-                    if rendered == 0:
-                        st.caption("All questions in this topic asked.")
+            asked_in_topic = sum(1 for q in questions if q in asked)
+            # Wrap each category in a state-derived keyed container.
+            # The key embeds the per-topic asked count, so when a question
+            # in this topic is answered the prior key vanishes from the
+            # script and Streamlit unmounts the whole subtree — which
+            # drops any chip widget Streamlit Cloud would otherwise leave
+            # hanging in the DOM after it stopped being re-rendered.
+            with st.container(key=f"cat_{conv}_{i}_a{asked_in_topic}"):
+                c_icon, c_exp = st.columns([1, 9], vertical_alignment="center")
+                with c_icon:
+                    st.markdown(
+                        f'<img src="data:image/png;base64,{_img_b64(icon_path)}" '
+                        f'style="width:96px;height:96px;'
+                        f'object-fit:contain;display:block;">',
+                        unsafe_allow_html=True,
+                    )
+                with c_exp:
+                    with st.expander(name, expanded=False):
+                        rendered = 0
+                        for j, q in enumerate(questions):
+                            if q in asked:
+                                continue
+                            st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                            if st.button(q, key=f"chip_{conv}_{i}_a{asked_in_topic}_{j}",
+                                         use_container_width=True):
+                                _queue_query(q)
+                                st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
+                            rendered += 1
+                        if rendered == 0:
+                            st.caption("All questions in this topic asked.")
 
-        # Conditionally create the chat container only when there's
-        # something to show: existing messages OR a pending query being
-        # streamed. The container key embeds conv_id so each New chat
-        # (which rotates conv_id) gets a fresh identity. When neither
-        # condition holds, no container is rendered at all.
+        # Wrap all chat content in an outer container keyed by conv_id.
+        # ALWAYS create this outer container so Streamlit can reconcile
+        # it: when New chat rotates conv_id, the prior key is no longer
+        # in the script and Streamlit unmounts the whole subtree
+        # (including chat-history bubbles, sources, feedback widgets,
+        # and any in-flight streaming output). The inner scrollable
+        # container is only created when there's something to show, so
+        # the start-page doesn't get a 520px gray frame on first load.
         conv_id = st.session_state.conv_id
         has_pending = bool(st.session_state.pending_query)
 
-        if msgs or has_pending:
-            with st.container(key=f"chat_{conv_id}", height=520):
-                for idx, msg in enumerate(msgs):
-                    avatar = USER_AVATAR if msg["role"] == "user" else ASSISTANT_AVATAR
-                    with st.chat_message(msg["role"], avatar=avatar):
-                        st.markdown(msg["content"])
-                        if msg["role"] == "assistant":
-                            render_meta(msg.get("meta", {}))
-                            render_sources(msg.get("sources", []))
-                            fb = f"fb_{conv_id}_{idx}"
-                            if st.session_state.get(fb) is None:
-                                c1, c2, _ = st.columns([1, 1, 8])
-                                with c1:
-                                    if st.button("👍", key=f"up_{conv_id}_{idx}"):
-                                        _record_feedback(idx, "up"); st.rerun()
-                                with c2:
-                                    if st.button("👎", key=f"down_{conv_id}_{idx}"):
-                                        _record_feedback(idx, "down"); st.rerun()
-                            else:
-                                rating = st.session_state[fb]
-                                st.caption(f"You rated: {'👍' if rating == 'up' else '👎'}")
-                                if rating == "down" and st.button("Regenerate", key=f"regen_{conv_id}_{idx}"):
-                                    _queue_regenerate(idx); del st.session_state[fb]; st.rerun()
+        with st.container(key=f"chat_outer_{conv_id}"):
+            if msgs or has_pending:
+                with st.container(height=520):
+                    for idx, msg in enumerate(msgs):
+                        avatar = USER_AVATAR if msg["role"] == "user" else ASSISTANT_AVATAR
+                        with st.chat_message(msg["role"], avatar=avatar):
+                            st.markdown(msg["content"])
+                            if msg["role"] == "assistant":
+                                render_meta(msg.get("meta", {}))
+                                render_sources(msg.get("sources", []))
+                                fb = f"fb_{conv_id}_{idx}"
+                                if st.session_state.get(fb) is None:
+                                    c1, c2, _ = st.columns([1, 1, 8])
+                                    with c1:
+                                        if st.button("👍", key=f"up_{conv_id}_{idx}"):
+                                            _record_feedback(idx, "up"); st.rerun()
+                                    with c2:
+                                        if st.button("👎", key=f"down_{conv_id}_{idx}"):
+                                            _record_feedback(idx, "down"); st.rerun()
+                                else:
+                                    rating = st.session_state[fb]
+                                    st.caption(f"You rated: {'👍' if rating == 'up' else '👎'}")
+                                    if rating == "down" and st.button("Regenerate", key=f"regen_{conv_id}_{idx}"):
+                                        _queue_regenerate(idx); del st.session_state[fb]; st.rerun()
 
-                if has_pending:
-                    if healthy:
-                        q = st.session_state.pending_query
-                        append = st.session_state.get("pending_append_user", True)
-                        st.session_state.pending_query = None
-                        st.session_state.pending_append_user = True
-                        if submit_query(q, append_user=append):
-                            st.rerun()
-                    else:
-                        st.warning("Backend cold‑starting … try again in ~30s.")
-                        st.session_state.pending_query = None
+                    if has_pending:
+                        if healthy:
+                            q = st.session_state.pending_query
+                            append = st.session_state.get("pending_append_user", True)
+                            st.session_state.pending_query = None
+                            st.session_state.pending_append_user = True
+                            if submit_query(q, append_user=append):
+                                st.rerun()
+                        else:
+                            st.warning("Backend cold‑starting … try again in ~30s.")
+                            st.session_state.pending_query = None
 
         if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
             if not healthy:
