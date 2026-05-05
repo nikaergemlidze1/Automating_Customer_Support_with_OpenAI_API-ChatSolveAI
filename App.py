@@ -14,9 +14,13 @@ import requests, streamlit as st
 from dotenv import load_dotenv
 
 @lru_cache(maxsize=16)
-def _img_b64(path: str) -> str:
+def _img_b64_cached(path: str, mtime: float) -> str:
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
+
+def _img_b64(path: str) -> str:
+    # Include mtime in cache key so updated images bust the cache.
+    return _img_b64_cached(path, os.path.getmtime(path))
 
 load_dotenv()
 
@@ -385,8 +389,8 @@ def render_chat(sidebar_slot, main_slot):
             with c_icon:
                 st.markdown(
                     f'<img src="data:image/png;base64,{_img_b64(icon_path)}" '
-                    f'style="width:80px;height:80px;border-radius:50%;'
-                    f'object-fit:cover;display:block;">',
+                    f'style="width:96px;height:96px;'
+                    f'object-fit:contain;display:block;">',
                     unsafe_allow_html=True,
                 )
             with c_exp:
