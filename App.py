@@ -358,18 +358,6 @@ def render_chat(sidebar_slot, main_slot):
         st.markdown('<div class="hero-title">💬 ChatSolveAI — Customer Support</div>', unsafe_allow_html=True)
         st.markdown('<p class="hero-sub">LangChain RAG · GPT‑3.5‑turbo · MongoDB · FastAPI …</p>', unsafe_allow_html=True)
 
-        if st.session_state.pending_query:
-            if healthy:
-                q = st.session_state.pending_query
-                append = st.session_state.get("pending_append_user", True)
-                st.session_state.pending_query = None
-                st.session_state.pending_append_user = True
-                if submit_query(q, append_user=append):
-                    st.rerun()
-            else:
-                st.warning("Backend cold‑starting … try again in ~30s.")
-                st.session_state.pending_query = None
-
         conv = st.session_state.conv_id
         msgs = st.session_state.messages
         asked = {m["content"] for m in msgs if m["role"] == "user"}
@@ -405,30 +393,56 @@ def render_chat(sidebar_slot, main_slot):
                     if not remaining:
                         st.caption("All questions in this topic asked.")
 
-        if msgs:
-            conv_id = st.session_state.conv_id
-            with st.container(height=520):
-                for idx, msg in enumerate(msgs):
-                    avatar = USER_AVATAR if msg["role"] == "user" else ASSISTANT_AVATAR
-                    with st.chat_message(msg["role"], avatar=avatar):
-                        st.markdown(msg["content"])
-                        if msg["role"] == "assistant":
-                            render_meta(msg.get("meta", {}))
-                            render_sources(msg.get("sources", []))
-                            fb = f"fb_{conv_id}_{idx}"
-                            if st.session_state.get(fb) is None:
-                                c1, c2, _ = st.columns([1, 1, 8])
-                                with c1:
-                                    if st.button("👍", key=f"up_{conv_id}_{idx}"):
-                                        _record_feedback(idx, "up"); st.rerun()
-                                with c2:
-                                    if st.button("👎", key=f"down_{conv_id}_{idx}"):
-                                        _record_feedback(idx, "down"); st.rerun()
-                            else:
-                                rating = st.session_state[fb]
-                                st.caption(f"You rated: {'👍' if rating == 'up' else '👎'}")
-                                if rating == "down" and st.button("Regenerate", key=f"regen_{conv_id}_{idx}"):
-                                    _queue_regenerate(idx); del st.session_state[fb]; st.rerun()
+        # Always create the chat container with a conv_id-keyed identity.
+        # When New chat rotates conv_id, the prior key is no longer
+        # referenced and Streamlit unmounts that container, taking its
+        # bubble children with it. Pending-query streaming output and
+        # all chat history bubbles render INSIDE this container, so a
+        # reset cleanly drops every chat-related DOM node at once.
+        conv_id = st.session_state.conv_id
+        chat_box = st.container(key=f"chat_{conv_id}", height=520)
+        has_pending = bool(st.session_state.pending_query)
+        if not msgs and not has_pending:
+            st.markdown(
+                f"<style>[class*='st-key-chat_{conv_id}']"
+                f"{{display:none !important;}}</style>",
+                unsafe_allow_html=True,
+            )
+
+        with chat_box:
+            for idx, msg in enumerate(msgs):
+                avatar = USER_AVATAR if msg["role"] == "user" else ASSISTANT_AVATAR
+                with st.chat_message(msg["role"], avatar=avatar):
+                    st.markdown(msg["content"])
+                    if msg["role"] == "assistant":
+                        render_meta(msg.get("meta", {}))
+                        render_sources(msg.get("sources", []))
+                        fb = f"fb_{conv_id}_{idx}"
+                        if st.session_state.get(fb) is None:
+                            c1, c2, _ = st.columns([1, 1, 8])
+                            with c1:
+                                if st.button("👍", key=f"up_{conv_id}_{idx}"):
+                                    _record_feedback(idx, "up"); st.rerun()
+                            with c2:
+                                if st.button("👎", key=f"down_{conv_id}_{idx}"):
+                                    _record_feedback(idx, "down"); st.rerun()
+                        else:
+                            rating = st.session_state[fb]
+                            st.caption(f"You rated: {'👍' if rating == 'up' else '👎'}")
+                            if rating == "down" and st.button("Regenerate", key=f"regen_{conv_id}_{idx}"):
+                                _queue_regenerate(idx); del st.session_state[fb]; st.rerun()
+
+            if has_pending:
+                if healthy:
+                    q = st.session_state.pending_query
+                    append = st.session_state.get("pending_append_user", True)
+                    st.session_state.pending_query = None
+                    st.session_state.pending_append_user = True
+                    if submit_query(q, append_user=append):
+                        st.rerun()
+                else:
+                    st.warning("Backend cold‑starting … try again in ~30s.")
+                    st.session_state.pending_query = None
 
         if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
             if not healthy:
