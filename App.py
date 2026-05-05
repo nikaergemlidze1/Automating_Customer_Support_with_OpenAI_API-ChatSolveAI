@@ -384,6 +384,17 @@ def render_chat(sidebar_slot, main_slot):
             greeting_slot.markdown("**👋 What do you need help with?**")
 
         for i, (icon_path, name, questions) in enumerate(TOPIC_CATEGORIES):
+            remaining = [(j, q) for j, q in enumerate(questions) if q not in asked]
+            # Purge widget state for asked questions so Streamlit cannot
+            # retain a stale chip widget instance after its key leaves the
+            # script. Without this purge, Streamlit Cloud sometimes leaves
+            # the last-asked chip visible inside the expander even though
+            # the script no longer renders it.
+            for j, q in enumerate(questions):
+                if q in asked:
+                    chip_key = f"chip_{conv}_{i}_{j}"
+                    if chip_key in st.session_state:
+                        del st.session_state[chip_key]
             with cat_slots[i].container():
                 c_icon, c_exp = st.columns([1, 9], vertical_alignment="center")
                 with c_icon:
@@ -394,20 +405,22 @@ def render_chat(sidebar_slot, main_slot):
                         unsafe_allow_html=True,
                     )
                 with c_exp:
-                    with st.expander(name, expanded=False):
-                        rendered = 0
-                        for j, q in enumerate(questions):
-                            if q in asked:
-                                continue
-                            st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                            if st.button(q, key=f"chip_{conv}_{i}_{j}",
-                                         use_container_width=True):
-                                _queue_query(q)
-                                st.rerun()
-                            st.markdown('</div>', unsafe_allow_html=True)
-                            rendered += 1
-                        if rendered == 0:
-                            st.caption("All questions in this topic asked.")
+                    if remaining:
+                        # Only render the expander when there are unanswered
+                        # questions. When all questions have been asked we
+                        # render a plain caption instead, so the expander
+                        # widget (and any chip children Streamlit might
+                        # retain inside it) is fully removed from the tree.
+                        with st.expander(name, expanded=False):
+                            for j, q in remaining:
+                                st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                                if st.button(q, key=f"chip_{conv}_{i}_{j}",
+                                             use_container_width=True):
+                                    _queue_query(q)
+                                    st.rerun()
+                                st.markdown('</div>', unsafe_allow_html=True)
+                    else:
+                        st.caption(f"**{name}** — all questions in this topic asked.")
 
         if msgs or has_pending:
             with chat_slot.container(height=520):
