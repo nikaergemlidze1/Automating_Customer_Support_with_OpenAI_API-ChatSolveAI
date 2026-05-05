@@ -370,9 +370,7 @@ def render_chat(sidebar_slot, main_slot):
         # produces fresh button keys, eliminating any stale-DOM risk.
         if not msgs:
             st.markdown("**👋 What do you need help with?**")
-        ask_round = len([m for m in msgs if m["role"] == "user"])
         for i, (icon_path, name, questions) in enumerate(TOPIC_CATEGORIES):
-            remaining = [q for q in questions if q not in asked]
             c_icon, c_exp = st.columns([1, 9], vertical_alignment="center")
             with c_icon:
                 st.markdown(
@@ -383,14 +381,23 @@ def render_chat(sidebar_slot, main_slot):
                 )
             with c_exp:
                 with st.expander(name, expanded=False):
-                    for j, q in enumerate(remaining):
+                    rendered = 0
+                    # Iterate the ORIGINAL questions list, skipping asked
+                    # ones. Widget keys use the original index `j` so each
+                    # question owns a stable key — Streamlit reuses the
+                    # same widget across reruns instead of accumulating
+                    # duplicates.
+                    for j, q in enumerate(questions):
+                        if q in asked:
+                            continue
                         st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                        if st.button(q, key=f"chip_{conv}_r{ask_round}_{i}_{j}",
+                        if st.button(q, key=f"chip_{conv}_{i}_{j}",
                                      use_container_width=True):
                             _queue_query(q)
                             st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
-                    if not remaining:
+                        rendered += 1
+                    if rendered == 0:
                         st.caption("All questions in this topic asked.")
 
         # Conditionally create the chat container only when there's
