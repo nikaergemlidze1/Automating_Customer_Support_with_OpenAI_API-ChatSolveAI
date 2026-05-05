@@ -7,10 +7,20 @@ folding both views into one script eliminates that class of bug entirely.
 """
 
 from __future__ import annotations
-import json, os, time, uuid
+import base64, json, os, time, uuid
 from datetime import datetime
+from functools import lru_cache
 import requests, streamlit as st
 from dotenv import load_dotenv
+
+@lru_cache(maxsize=16)
+def _img_b64_cached(path: str, mtime: float) -> str:
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
+
+def _img_b64(path: str) -> str:
+    # Include mtime in cache key so updated images bust the cache.
+    return _img_b64_cached(path, os.path.getmtime(path))
 
 load_dotenv()
 
@@ -377,7 +387,12 @@ def render_chat(sidebar_slot, main_slot):
             remaining = [q for q in questions if q not in asked]
             c_icon, c_exp = st.columns([1, 9], vertical_alignment="center")
             with c_icon:
-                st.image(icon_path, width=44)
+                st.markdown(
+                    f'<img src="data:image/png;base64,{_img_b64(icon_path)}" '
+                    f'style="width:96px;height:96px;'
+                    f'object-fit:contain;display:block;">',
+                    unsafe_allow_html=True,
+                )
             with c_exp:
                 with st.expander(name, expanded=False):
                     for j, q in enumerate(remaining):
