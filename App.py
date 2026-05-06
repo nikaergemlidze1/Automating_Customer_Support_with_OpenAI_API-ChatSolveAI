@@ -70,10 +70,11 @@ st.markdown("""<style>
 .chip-btn button:hover{background:rgba(79,139,249,.15)!important;border-color:#4F8BF9!important;transform:translateX(2px)}
 [class*='st-key-iconbtn_'] button{transition:background-color .15s ease,border-color .15s ease,transform .15s ease!important}
 [class*='st-key-iconbtn_'] button:hover{transform:translateY(-2px)}
-.drill-section{overflow:hidden;animation:drillExpand .35s cubic-bezier(.2,.7,.3,1) both}
-@keyframes drillExpand{from{max-height:0;opacity:0;transform:translateY(-6px)}to{max-height:1200px;opacity:1;transform:translateY(0)}}
-.chip-btn{animation:chipFadeIn .26s cubic-bezier(.2,.7,.3,1) both;opacity:0}
-@keyframes chipFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.drill-section{overflow:hidden;animation:drillExpand .45s cubic-bezier(.16,1,.3,1) both}
+@keyframes drillExpand{0%{max-height:0;opacity:0;transform:translateY(-8px) scale(.98)}60%{opacity:.85}100%{max-height:1200px;opacity:1;transform:translateY(0) scale(1)}}
+.chip-btn{animation:chipFadeIn .32s cubic-bezier(.16,1,.3,1) both;opacity:0}
+@keyframes chipFadeIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn{animation:none!important;opacity:1!important}}
 #MainMenu,footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
@@ -152,15 +153,15 @@ for _i, (_icon_path, _name, _qs) in enumerate(TOPIC_CATEGORIES):
     _ICON_CSS_RULES.append(
         f".st-key-iconbtn_{_i} button{{"
         f"background-image:url('data:image/png;base64,{_b64}')!important;"
-        f"background-position:center 18px!important;"
-        f"background-size:128px auto!important;"
+        f"background-position:center 14px!important;"
+        f"background-size:144px auto!important;"
         f"background-repeat:no-repeat!important;"
         f"background-color:rgba(79,139,249,0.05)!important;"
-        f"height:220px!important;"
+        f"height:200px!important;"
         f"padding-top:160px!important;"
-        f"padding-bottom:16px!important;"
+        f"padding-bottom:12px!important;"
         f"font-weight:600!important;"
-        f"font-size:1.05rem!important;"
+        f"font-size:1rem!important;"
         f"border:2px solid rgba(255,255,255,0.08)!important;"
         f"border-radius:16px!important;"
         f"}}"
@@ -478,7 +479,7 @@ def render_chat(sidebar_slot, main_slot):
                     # Each chip gets a slightly increasing animation-delay
                     # so they cascade in instead of all popping at once.
                     for chip_index, (j, q) in enumerate(remaining):
-                        delay = 0.10 + chip_index * 0.07
+                        delay = 0.18 + chip_index * 0.08
                         st.markdown(
                             f'<div class="chip-btn" '
                             f'style="animation-delay:{delay:.2f}s">',
