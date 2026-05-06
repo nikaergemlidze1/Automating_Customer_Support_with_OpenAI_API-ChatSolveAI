@@ -356,7 +356,7 @@ def render_chat(sidebar_slot, main_slot):
 
     with main_slot:
         st.markdown('<div class="hero-title">💬 ChatSolveAI — Customer Support</div>', unsafe_allow_html=True)
-        st.markdown('<p class="hero-sub">LangChain RAG · GPT‑3.5‑turbo · MongoDB · FastAPI …</p>', unsafe_allow_html=True)
+        st.markdown('<p class="hero-sub">AI-powered customer support assistant. Get instant answers about orders, refunds, billing, account, and subscriptions — backed by a real-time knowledge base.</p>', unsafe_allow_html=True)
 
         conv = st.session_state.conv_id
         msgs = st.session_state.messages
@@ -400,8 +400,9 @@ def render_chat(sidebar_slot, main_slot):
                 with c_icon:
                     st.markdown(
                         f'<img src="data:image/png;base64,{_img_b64(icon_path)}" '
+                        f'alt="{name}" title="{name}" '
                         f'style="width:120px;height:120px;'
-                        f'object-fit:contain;display:block;">',
+                        f'object-fit:contain;display:block;cursor:pointer;">',
                         unsafe_allow_html=True,
                     )
                 with c_exp:
