@@ -66,8 +66,12 @@ st.markdown("""<style>
 .src-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-left:3px solid rgba(79,139,249,.8);padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:.82rem;color:#d4d7dd}
 .src-card.top{border-left-color:#66bb6a;background:rgba(102,187,106,.08)}
 .src-meta{font-size:.68rem;color:#7a8190;margin-top:4px}
-.chip-btn button{width:100%!important;background:rgba(79,139,249,.08)!important;border:1px solid rgba(255,255,255,.08)!important;color:#d4d7dd!important;text-align:left!important;padding:10px 14px!important;border-radius:10px!important}
-.chip-btn button:hover{background:rgba(79,139,249,.15)!important;border-color:#4F8BF9!important}
+.chip-btn button{width:100%!important;background:rgba(79,139,249,.08)!important;border:1px solid rgba(255,255,255,.08)!important;color:#d4d7dd!important;text-align:left!important;padding:10px 14px!important;border-radius:10px!important;transition:background-color .15s ease,border-color .15s ease,transform .12s ease!important}
+.chip-btn button:hover{background:rgba(79,139,249,.15)!important;border-color:#4F8BF9!important;transform:translateX(2px)}
+[class*='st-key-iconbtn_'] button{transition:background-color .15s ease,border-color .15s ease,transform .15s ease!important}
+[class*='st-key-iconbtn_'] button:hover{transform:translateY(-2px)}
+.drill-section{animation:drillFadeIn .18s ease-out}
+@keyframes drillFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
 #MainMenu,footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
@@ -133,6 +137,36 @@ TOPIC_CATEGORIES = [
         "Where can I view my billing history?",
     ]),
 ]
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Inject the icon-button background-image CSS once at module load. Static
+# class names (.st-key-iconbtn_0 … _3) so this CSS doesn't need to re-emit
+# on every rerun (the previous version embedded conv_id in the selector,
+# forcing per-render re-injection that contributed to the 'reload' feel).
+# ──────────────────────────────────────────────────────────────────────────────
+_ICON_CSS_RULES = []
+for _i, (_icon_path, _name, _qs) in enumerate(TOPIC_CATEGORIES):
+    _b64 = _img_b64(_icon_path)
+    _ICON_CSS_RULES.append(
+        f".st-key-iconbtn_{_i} button{{"
+        f"background-image:url('data:image/png;base64,{_b64}')!important;"
+        f"background-position:center 14px!important;"
+        f"background-size:96px auto!important;"
+        f"background-repeat:no-repeat!important;"
+        f"background-color:rgba(79,139,249,0.05)!important;"
+        f"height:170px!important;"
+        f"padding-top:120px!important;"
+        f"padding-bottom:14px!important;"
+        f"font-weight:600!important;"
+        f"border:2px solid rgba(255,255,255,0.08)!important;"
+        f"border-radius:14px!important;"
+        f"}}"
+        f".st-key-iconbtn_{_i} button:hover{{"
+        f"background-color:rgba(79,139,249,0.18)!important;"
+        f"border-color:#4F8BF9!important;"
+        f"}}"
+    )
+st.markdown(f"<style>{''.join(_ICON_CSS_RULES)}</style>", unsafe_allow_html=True)
 
 def _init_state():
     url_id = _session_id_from_url()
@@ -371,13 +405,17 @@ def render_chat(sidebar_slot, main_slot):
         # (manifests as duplicate chips and chat bubbles surviving New
         # chat). The .empty() call BEFORE the fill is what tears down the
         # previous frame's content; without it, leaks return.
+        # Greeting + chat live in st.empty() slots so we can force-clear
+        # them per rerun (chat-history stale-DOM was the original reason
+        # for this pattern). The icon row no longer needs a clearing slot
+        # because the 4 icon buttons are static — same identity every
+        # render — so Streamlit's normal reconciliation handles them
+        # smoothly without any tear-down/rebuild flicker.
         greeting_slot = st.empty()
-        icon_row_slot = st.empty()
         drill_slot = st.empty()
         chat_slot = st.empty()
 
         greeting_slot.empty()
-        icon_row_slot.empty()
         drill_slot.empty()
         chat_slot.empty()
 
@@ -386,58 +424,40 @@ def render_chat(sidebar_slot, main_slot):
 
         selected = st.session_state.get("selected_topic")
 
-        # Inject per-icon CSS: each icon button gets its category PNG as a
-        # background-image, sized large with the button text rendered as a
-        # small caption below. Selected icon gets a highlighted border.
-        css_rules = []
-        for i, (icon_path, _name, _qs) in enumerate(TOPIC_CATEGORIES):
-            b64 = _img_b64(icon_path)
-            border = ("2px solid #4F8BF9"
-                      if selected == i else "2px solid rgba(255,255,255,0.08)")
-            css_rules.append(
-                f".st-key-iconbtn_{conv}_{i} button{{"
-                f"background-image:url('data:image/png;base64,{b64}')!important;"
-                f"background-position:center 14px!important;"
-                f"background-size:96px auto!important;"
-                f"background-repeat:no-repeat!important;"
-                f"background-color:rgba(79,139,249,0.05)!important;"
-                f"height:170px!important;"
-                f"padding-top:120px!important;"
-                f"padding-bottom:14px!important;"
-                f"font-weight:600!important;"
-                f"border:{border}!important;"
-                f"border-radius:14px!important;"
-                f"transition:all .15s ease!important;"
-                f"}}"
-                f".st-key-iconbtn_{conv}_{i} button:hover{{"
-                f"background-color:rgba(79,139,249,0.18)!important;"
+        # Tiny per-render CSS only for the selected-icon highlight border.
+        # The bulky icon background-image rules are injected ONCE at
+        # module load (above), not per render — that keeps the icon row
+        # mounted across reruns instead of being re-styled each time.
+        if selected is not None:
+            st.markdown(
+                f"<style>.st-key-iconbtn_{selected} button{{"
                 f"border-color:#4F8BF9!important;"
-                f"transform:translateY(-2px);"
-                f"}}"
+                f"background-color:rgba(79,139,249,0.18)!important;"
+                f"}}</style>",
+                unsafe_allow_html=True,
             )
-        st.markdown(f"<style>{''.join(css_rules)}</style>", unsafe_allow_html=True)
 
-        # Row of 4 icon-buttons. Each button shows the section name as text
-        # below the background icon image. Clicking toggles selection.
-        with icon_row_slot.container():
-            icon_cols = st.columns(4)
-            for i, (icon_path, name, _qs) in enumerate(TOPIC_CATEGORIES):
-                with icon_cols[i]:
-                    if st.button(name,
-                                 key=f"iconbtn_{conv}_{i}",
-                                 help=name,
-                                 use_container_width=True):
-                        if selected == i:
-                            st.session_state.pop("selected_topic", None)
-                        else:
-                            st.session_state["selected_topic"] = i
-                            # Purge any chip widget state from prior topic
-                            # so Streamlit can't reattach old chips to the
-                            # new drill view.
-                            for k in list(st.session_state.keys()):
-                                if isinstance(k, str) and k.startswith(f"chip_{conv}_"):
-                                    del st.session_state[k]
-                        st.rerun()
+        # Row of 4 icon-buttons. Static keys (iconbtn_0..3) so the buttons
+        # keep stable identity across reruns and across New chat resets,
+        # which lets Streamlit reconcile in place rather than remount.
+        icon_cols = st.columns(4)
+        for i, (icon_path, name, _qs) in enumerate(TOPIC_CATEGORIES):
+            with icon_cols[i]:
+                if st.button(name,
+                             key=f"iconbtn_{i}",
+                             help=name,
+                             use_container_width=True):
+                    if selected == i:
+                        st.session_state.pop("selected_topic", None)
+                    else:
+                        st.session_state["selected_topic"] = i
+                        # Purge any chip widget state from prior topic
+                        # so Streamlit can't reattach old chips to the
+                        # new drill view.
+                        for k in list(st.session_state.keys()):
+                            if isinstance(k, str) and k.startswith(f"chip_{conv}_"):
+                                del st.session_state[k]
+                    st.rerun()
 
         # Drill content for the selected topic. Only renders when a topic
         # is selected; otherwise drill_slot stays empty (kept clear by the
@@ -453,7 +473,12 @@ def render_chat(sidebar_slot, main_slot):
                     if chip_key in st.session_state:
                         del st.session_state[chip_key]
             with drill_slot.container():
-                st.markdown(f"### {sel_name}")
+                # drill-section class triggers the fade-in animation
+                # defined in the global stylesheet.
+                st.markdown(
+                    f'<div class="drill-section"><h3>{sel_name}</h3></div>',
+                    unsafe_allow_html=True,
+                )
                 if remaining:
                     for j, q in remaining:
                         st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
