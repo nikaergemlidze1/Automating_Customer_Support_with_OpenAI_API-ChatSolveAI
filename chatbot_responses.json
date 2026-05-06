@@ -112,5 +112,11 @@
     "retrieved_response": "Please report any bugs through our 'Feedback' section or email support.",
     "confidence_score": 0.88,
     "timestamp": "2025-04-18T13:38:39Z"
+  },
+  {
+    "query_text": "How long does a refund take to process?",
+    "retrieved_response": "Refund processing typically takes 5-10 business days after approval, depending on your bank or card issuer.",
+    "confidence_score": 0.92,
+    "timestamp": "2026-05-06T00:00:00Z"
   }
 ]

@@ -1,6 +1,7 @@
 {
     "password_reset": "You can reset your password by clicking on 'Forgot Password' at the login page.",
     "refund_policy": "Our refund policy allows refunds within 30 days of purchase with a valid receipt.",
+    "refund_processing_time": "Refund processing typically takes 5-10 business days after approval, depending on your bank or card issuer.",
     "shipping_change": "Unfortunately, you cannot change the shipping address after placing the order.",
     "order_tracking": "Track your order by logging into your account and checking the 'Orders' section.",
     "international_shipping": "Yes, we offer international shipping to select countries.",
