@@ -70,8 +70,10 @@ st.markdown("""<style>
 .chip-btn button:hover{background:rgba(79,139,249,.15)!important;border-color:#4F8BF9!important;transform:translateX(2px)}
 [class*='st-key-iconbtn_'] button{transition:background-color .15s ease,border-color .15s ease,transform .15s ease!important}
 [class*='st-key-iconbtn_'] button:hover{transform:translateY(-2px)}
-.drill-section{animation:drillFadeIn .18s ease-out}
-@keyframes drillFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.drill-section{overflow:hidden;animation:drillExpand .35s cubic-bezier(.2,.7,.3,1) both}
+@keyframes drillExpand{from{max-height:0;opacity:0;transform:translateY(-6px)}to{max-height:1200px;opacity:1;transform:translateY(0)}}
+.chip-btn{animation:chipFadeIn .26s cubic-bezier(.2,.7,.3,1) both;opacity:0}
+@keyframes chipFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 #MainMenu,footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
@@ -398,28 +400,12 @@ def render_chat(sidebar_slot, main_slot):
         asked = {m["content"] for m in msgs if m["role"] == "user"}
         has_pending = bool(st.session_state.pending_query)
 
-        # Pre-create st.empty() placeholders for everything below the hero.
-        # On every rerun we explicitly call .empty() on each placeholder to
-        # force-clear any prior DOM, then re-fill via .container(). This is
-        # the only pattern that reliably clears stale widgets on Streamlit
-        # Cloud — keyed containers alone leak DOM between reruns there
-        # (manifests as duplicate chips and chat bubbles surviving New
-        # chat). The .empty() call BEFORE the fill is what tears down the
-        # previous frame's content; without it, leaks return.
-        # Greeting + chat live in st.empty() slots so we can force-clear
-        # them per rerun (chat-history stale-DOM was the original reason
-        # for this pattern). The icon row no longer needs a clearing slot
-        # because the 4 icon buttons are static — same identity every
-        # render — so Streamlit's normal reconciliation handles them
-        # smoothly without any tear-down/rebuild flicker.
+        # Greeting slot lives ABOVE the icon row, so reserve it first.
+        # The icon row itself is static (4 fixed buttons with stable
+        # keys) — Streamlit reconciles it in place across reruns, no
+        # tear-down needed.
         greeting_slot = st.empty()
-        drill_slot = st.empty()
-        chat_slot = st.empty()
-
         greeting_slot.empty()
-        drill_slot.empty()
-        chat_slot.empty()
-
         if not msgs:
             greeting_slot.markdown("**👋 What do you need help with?**")
 
@@ -460,9 +446,17 @@ def render_chat(sidebar_slot, main_slot):
                                 del st.session_state[k]
                     st.rerun()
 
+        # Drill and chat slots are reserved AFTER the icon row so their
+        # rendered DOM lands BELOW the icons (Streamlit places elements
+        # in script-call order). Force-clearing each rerun prevents
+        # stale chip / chat-bubble DOM from leaking across reruns.
+        drill_slot = st.empty()
+        chat_slot = st.empty()
+        drill_slot.empty()
+        chat_slot.empty()
+
         # Drill content for the selected topic. Only renders when a topic
-        # is selected; otherwise drill_slot stays empty (kept clear by the
-        # earlier .empty() call so no stale DOM leaks).
+        # is selected; otherwise drill_slot stays empty.
         if selected is not None:
             _icon, sel_name, sel_questions = TOPIC_CATEGORIES[selected]
             remaining = [(j, q) for j, q in enumerate(sel_questions) if q not in asked]
@@ -474,15 +468,22 @@ def render_chat(sidebar_slot, main_slot):
                     if chip_key in st.session_state:
                         del st.session_state[chip_key]
             with drill_slot.container():
-                # drill-section class triggers the fade-in animation
-                # defined in the global stylesheet.
+                # drill-section class drives the max-height + opacity
+                # expansion defined in the global stylesheet.
                 st.markdown(
                     f'<div class="drill-section"><h3>{sel_name}</h3></div>',
                     unsafe_allow_html=True,
                 )
                 if remaining:
-                    for j, q in remaining:
-                        st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                    # Each chip gets a slightly increasing animation-delay
+                    # so they cascade in instead of all popping at once.
+                    for chip_index, (j, q) in enumerate(remaining):
+                        delay = 0.10 + chip_index * 0.07
+                        st.markdown(
+                            f'<div class="chip-btn" '
+                            f'style="animation-delay:{delay:.2f}s">',
+                            unsafe_allow_html=True,
+                        )
                         if st.button(q, key=f"chip_{conv}_{selected}_{j}",
                                      use_container_width=True):
                             _queue_query(q)
