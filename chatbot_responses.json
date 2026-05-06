@@ -121,7 +121,7 @@
   },
   {
     "query_text": "How do I get a refund?",
-    "retrieved_response": "You can request a refund within 30 days of purchase with a valid receipt.",
+    "retrieved_response": "You can get a refund within 30 days of purchase with a valid receipt.",
     "confidence_score": 0.93,
     "timestamp": "2026-05-06T00:00:00Z"
   }
