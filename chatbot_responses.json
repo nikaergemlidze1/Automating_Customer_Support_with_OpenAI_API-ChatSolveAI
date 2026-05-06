@@ -118,5 +118,11 @@
     "retrieved_response": "Refund processing typically takes 5-10 business days after approval, depending on your bank or card issuer.",
     "confidence_score": 0.92,
     "timestamp": "2026-05-06T00:00:00Z"
+  },
+  {
+    "query_text": "How do I get a refund?",
+    "retrieved_response": "To get a refund, request one within 30 days of purchase with a valid receipt — eligible orders qualify under our refund policy.",
+    "confidence_score": 0.93,
+    "timestamp": "2026-05-06T00:00:00Z"
   }
 ]
