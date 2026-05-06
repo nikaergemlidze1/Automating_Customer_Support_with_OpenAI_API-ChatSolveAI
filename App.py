@@ -64,8 +64,10 @@ st.markdown("""<style>
 .pill-purple{background:rgba(156,39,176,.15);color:#ba68c8}
 .meter-wrap{background:rgba(255,255,255,.06);border-radius:6px;height:6px;overflow:hidden;margin-top:4px}
 .meter-fill{height:100%;background:linear-gradient(90deg,#4CAF50,#81C784)}
-.src-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-left:3px solid rgba(79,139,249,.8);padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:.82rem;color:#d4d7dd}
+.src-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-left:3px solid rgba(79,139,249,.8);padding:8px 12px;border-radius:6px;margin-bottom:8px;font-size:.82rem;color:#d4d7dd;transition:transform .15s ease,box-shadow .2s ease,border-left-color .2s ease,background-color .2s ease}
+.src-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(79,139,249,.15);border-left-color:#4F8BF9;background:rgba(79,139,249,.08)}
 .src-card.top{border-left-color:#66bb6a;background:rgba(102,187,106,.08)}
+.src-card.top:hover{border-left-color:#81c784;box-shadow:0 6px 16px rgba(102,187,106,.18);background:rgba(102,187,106,.14)}
 .src-meta{font-size:.68rem;color:#7a8190;margin-top:4px}
 .chip-btn button{width:100%!important;background:rgba(79,139,249,.08)!important;border:1px solid rgba(255,255,255,.08)!important;color:#d4d7dd!important;text-align:left!important;padding:10px 14px!important;border-radius:10px!important;transition:background-color .15s ease,border-color .15s ease,transform .12s ease!important}
 .chip-btn button:hover{background:rgba(79,139,249,.15)!important;border-color:#4F8BF9!important;transform:translateX(2px)}
@@ -82,7 +84,15 @@ st.markdown("""<style>
 .typing-dots span:nth-child(2){animation-delay:.18s}
 .typing-dots span:nth-child(3){animation-delay:.36s}
 @keyframes typingBounce{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-5px)}}
-@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn,[data-testid='stChatMessage'],.typing-dots span{animation:none!important;opacity:1!important}}
+.pill{animation:pillPulse .9s cubic-bezier(.16,1,.3,1) both}
+@keyframes pillPulse{0%{opacity:0;transform:scale(.85)}55%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:scale(1)}}
+.page-entry-1{animation:pageEntryFade .55s cubic-bezier(.16,1,.3,1) both}
+.page-entry-2{animation:pageEntryFade .55s cubic-bezier(.16,1,.3,1) .12s both}
+.page-entry-3{animation:pageEntryFade .55s cubic-bezier(.16,1,.3,1) .24s both}
+@keyframes pageEntryFade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.sidebar-entry [data-testid='stSidebar']{animation:sidebarSlide .5s cubic-bezier(.16,1,.3,1) both}
+@keyframes sidebarSlide{from{transform:translateX(-30px);opacity:0}to{transform:translateX(0);opacity:1}}
+@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn,[data-testid='stChatMessage'],.typing-dots span,.pill,.page-entry-1,.page-entry-2,.page-entry-3,.sidebar-entry [data-testid='stSidebar']{animation:none!important;opacity:1!important;transform:none!important}}
 #MainMenu,footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
@@ -161,17 +171,17 @@ for _i, (_icon_path, _name, _qs) in enumerate(TOPIC_CATEGORIES):
     _ICON_CSS_RULES.append(
         f".st-key-iconbtn_{_i} button{{"
         f"background-image:url('data:image/png;base64,{_b64}')!important;"
-        f"background-position:center 14px!important;"
-        f"background-size:144px auto!important;"
+        f"background-position:center 8px!important;"
+        f"background-size:160px auto!important;"
         f"background-repeat:no-repeat!important;"
         f"background-color:rgba(79,139,249,0.05)!important;"
-        f"height:200px!important;"
-        f"padding-top:160px!important;"
-        f"padding-bottom:12px!important;"
+        f"height:180px!important;"
+        f"padding-top:152px!important;"
+        f"padding-bottom:10px!important;"
         f"font-weight:600!important;"
-        f"font-size:1rem!important;"
+        f"font-size:.95rem!important;"
         f"border:2px solid rgba(255,255,255,0.08)!important;"
-        f"border-radius:16px!important;"
+        f"border-radius:14px!important;"
         f"}}"
         f".st-key-iconbtn_{_i} button:hover{{"
         f"background-color:rgba(79,139,249,0.18)!important;"
@@ -407,9 +417,37 @@ def render_chat(sidebar_slot, main_slot):
                                file_name=f"chatsolveai_{st.session_state.session_id[:8]}.md",
                                mime="text/markdown", use_container_width=True)
 
+    # First-render flag drives the page-entry stagger animations (#3.F)
+    # and the sidebar slide-in (#3.I). The flag flips False after the
+    # very first render in this session, so subsequent reruns don't
+    # replay the entry animations.
+    is_first_render = not st.session_state.get("_initial_render_seen", False)
+    st.session_state["_initial_render_seen"] = True
+
+    if is_first_render:
+        # One-shot CSS rule: applies the sidebar slide-in animation on
+        # the very first render only. Streamlit's normal markdown DOM
+        # will be replaced on subsequent renders, dropping this rule.
+        st.markdown(
+            "<style>[data-testid='stSidebar']{"
+            "animation:sidebarSlide .5s cubic-bezier(.16,1,.3,1) both}</style>",
+            unsafe_allow_html=True,
+        )
+
     with main_slot:
-        st.markdown('<div class="hero-title">💬 ChatSolveAI — Customer Support</div>', unsafe_allow_html=True)
-        st.markdown('<p class="hero-sub">AI-powered customer support assistant. Get instant answers about orders, refunds, billing, account, and subscriptions — backed by a real-time knowledge base.</p>', unsafe_allow_html=True)
+        # Page-entry stagger classes only attach on first render.
+        hero_cls = "hero-title page-entry-1" if is_first_render else "hero-title"
+        sub_cls = "hero-sub page-entry-2" if is_first_render else "hero-sub"
+        st.markdown(
+            f'<div class="{hero_cls}">💬 ChatSolveAI — Customer Support</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<p class="{sub_cls}">AI-powered customer support assistant. '
+            f'Get instant answers about orders, refunds, billing, account, '
+            f'and subscriptions — backed by a real-time knowledge base.</p>',
+            unsafe_allow_html=True,
+        )
 
         conv = st.session_state.conv_id
         msgs = st.session_state.messages
@@ -423,7 +461,12 @@ def render_chat(sidebar_slot, main_slot):
         greeting_slot = st.empty()
         greeting_slot.empty()
         if not msgs:
-            greeting_slot.markdown("**👋 What do you need help with?**")
+            greet_cls = "page-entry-3" if is_first_render else ""
+            greeting_slot.markdown(
+                f'<div class="{greet_cls}"><strong>'
+                f'👋 What do you need help with?</strong></div>',
+                unsafe_allow_html=True,
+            )
 
         selected = st.session_state.get("selected_topic")
 
