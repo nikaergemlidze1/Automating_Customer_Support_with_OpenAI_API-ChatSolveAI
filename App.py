@@ -11,6 +11,7 @@ import base64, json, os, time, uuid
 from datetime import datetime
 from functools import lru_cache
 import requests, streamlit as st
+import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
 @lru_cache(maxsize=16)
@@ -74,7 +75,14 @@ st.markdown("""<style>
 @keyframes drillExpand{0%{max-height:0;opacity:0;transform:translateY(-8px) scale(.98)}60%{opacity:.85}100%{max-height:1200px;opacity:1;transform:translateY(0) scale(1)}}
 .chip-btn{animation:chipFadeIn .32s cubic-bezier(.16,1,.3,1) both;opacity:0}
 @keyframes chipFadeIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn{animation:none!important;opacity:1!important}}
+[data-testid='stChatMessage']{animation:bubbleFadeIn .28s cubic-bezier(.16,1,.3,1) both}
+@keyframes bubbleFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.typing-dots{display:inline-flex;gap:5px;padding:6px 2px;align-items:center}
+.typing-dots span{width:7px;height:7px;border-radius:50%;background:#9ea3b0;display:inline-block;animation:typingBounce 1.1s infinite ease-in-out}
+.typing-dots span:nth-child(2){animation-delay:.18s}
+.typing-dots span:nth-child(3){animation-delay:.36s}
+@keyframes typingBounce{0%,60%,100%{opacity:.35;transform:translateY(0)}30%{opacity:1;transform:translateY(-5px)}}
+@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn,[data-testid='stChatMessage'],.typing-dots span{animation:none!important;opacity:1!important}}
 #MainMenu,footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
@@ -315,6 +323,13 @@ def submit_query(query, append_user=True):
         st.markdown(query)
     with st.chat_message("assistant",avatar=ASSISTANT_AVATAR):
         box = st.empty()
+        # Typing indicator until the first token arrives. call_chat_stream
+        # overwrites this placeholder with streaming text on the first
+        # output_box.markdown(...) call, so the dots vanish smoothly.
+        box.markdown(
+            '<div class="typing-dots"><span></span><span></span><span></span></div>',
+            unsafe_allow_html=True,
+        )
         result = call_chat_stream(query,box) if USE_STREAMING else call_chat(query)
         if not USE_STREAMING and result: box.markdown(result.get("answer",""))
     if not result:
@@ -486,7 +501,8 @@ def render_chat(sidebar_slot, main_slot):
                             unsafe_allow_html=True,
                         )
                         if st.button(q, key=f"chip_{conv}_{selected}_{j}",
-                                     use_container_width=True):
+                                     use_container_width=True,
+                                     disabled=has_pending):
                             _queue_query(q)
                             st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
@@ -528,6 +544,31 @@ def render_chat(sidebar_slot, main_slot):
                     else:
                         st.warning("Backend cold‑starting … try again in ~30s.")
                         st.session_state.pending_query = None
+
+            # Auto-scroll the chat container to the newest message after
+            # any rerun that has chat content. Runs in a 0-height iframe;
+            # accesses the parent Streamlit document via window.parent and
+            # smooth-scrolls every scrollable vertical block to its bottom.
+            # No-op if Streamlit Cloud's iframe sandbox blocks parent
+            # access — in that case it just doesn't scroll, no error.
+            components.html(
+                """<script>
+                setTimeout(() => {
+                  try {
+                    const root = window.parent.document;
+                    const blocks = root.querySelectorAll(
+                      '[data-testid="stVerticalBlockBorderWrapper"]'
+                    );
+                    blocks.forEach(b => {
+                      if (b.scrollHeight > b.clientHeight) {
+                        b.scrollTo({ top: b.scrollHeight, behavior: 'smooth' });
+                      }
+                    });
+                  } catch (e) {}
+                }, 120);
+                </script>""",
+                height=0,
+            )
 
         if prompt := st.chat_input("Ask about orders, billing, account, or technical issues…"):
             if not healthy:
