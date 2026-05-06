@@ -127,7 +127,7 @@
   },
   {
     "query_text": "How long does delivery take?",
-    "retrieved_response": "Delivery typically takes 5-7 business days for standard shipping, depending on your location.",
+    "retrieved_response": "Delivery takes 5-7 business days for standard shipping.",
     "confidence_score": 0.93,
     "timestamp": "2026-05-06T00:00:00Z"
   }
