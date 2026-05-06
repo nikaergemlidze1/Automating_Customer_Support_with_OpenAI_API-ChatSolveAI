@@ -372,56 +372,98 @@ def render_chat(sidebar_slot, main_slot):
         # chat). The .empty() call BEFORE the fill is what tears down the
         # previous frame's content; without it, leaks return.
         greeting_slot = st.empty()
-        cat_slots = [st.empty() for _ in TOPIC_CATEGORIES]
+        icon_row_slot = st.empty()
+        drill_slot = st.empty()
         chat_slot = st.empty()
 
         greeting_slot.empty()
-        for s in cat_slots:
-            s.empty()
+        icon_row_slot.empty()
+        drill_slot.empty()
         chat_slot.empty()
 
         if not msgs:
             greeting_slot.markdown("**👋 What do you need help with?**")
 
-        for i, (icon_path, name, questions) in enumerate(TOPIC_CATEGORIES):
-            remaining = [(j, q) for j, q in enumerate(questions) if q not in asked]
-            # Purge widget state for asked questions so Streamlit cannot
-            # retain a stale chip widget instance after its key leaves the
-            # script. Without this purge, Streamlit Cloud sometimes leaves
-            # the last-asked chip visible inside the expander even though
-            # the script no longer renders it.
-            for j, q in enumerate(questions):
+        selected = st.session_state.get("selected_topic")
+
+        # Inject per-icon CSS: each icon button gets its category PNG as a
+        # background-image, sized large with the button text rendered as a
+        # small caption below. Selected icon gets a highlighted border.
+        css_rules = []
+        for i, (icon_path, _name, _qs) in enumerate(TOPIC_CATEGORIES):
+            b64 = _img_b64(icon_path)
+            border = ("2px solid #4F8BF9"
+                      if selected == i else "2px solid rgba(255,255,255,0.08)")
+            css_rules.append(
+                f".st-key-iconbtn_{conv}_{i} button{{"
+                f"background-image:url('data:image/png;base64,{b64}')!important;"
+                f"background-position:center 14px!important;"
+                f"background-size:96px auto!important;"
+                f"background-repeat:no-repeat!important;"
+                f"background-color:rgba(79,139,249,0.05)!important;"
+                f"height:170px!important;"
+                f"padding-top:120px!important;"
+                f"padding-bottom:14px!important;"
+                f"font-weight:600!important;"
+                f"border:{border}!important;"
+                f"border-radius:14px!important;"
+                f"transition:all .15s ease!important;"
+                f"}}"
+                f".st-key-iconbtn_{conv}_{i} button:hover{{"
+                f"background-color:rgba(79,139,249,0.18)!important;"
+                f"border-color:#4F8BF9!important;"
+                f"transform:translateY(-2px);"
+                f"}}"
+            )
+        st.markdown(f"<style>{''.join(css_rules)}</style>", unsafe_allow_html=True)
+
+        # Row of 4 icon-buttons. Each button shows the section name as text
+        # below the background icon image. Clicking toggles selection.
+        with icon_row_slot.container():
+            icon_cols = st.columns(4)
+            for i, (icon_path, name, _qs) in enumerate(TOPIC_CATEGORIES):
+                with icon_cols[i]:
+                    if st.button(name,
+                                 key=f"iconbtn_{conv}_{i}",
+                                 help=name,
+                                 use_container_width=True):
+                        if selected == i:
+                            st.session_state.pop("selected_topic", None)
+                        else:
+                            st.session_state["selected_topic"] = i
+                            # Purge any chip widget state from prior topic
+                            # so Streamlit can't reattach old chips to the
+                            # new drill view.
+                            for k in list(st.session_state.keys()):
+                                if isinstance(k, str) and k.startswith(f"chip_{conv}_"):
+                                    del st.session_state[k]
+                        st.rerun()
+
+        # Drill content for the selected topic. Only renders when a topic
+        # is selected; otherwise drill_slot stays empty (kept clear by the
+        # earlier .empty() call so no stale DOM leaks).
+        if selected is not None:
+            _icon, sel_name, sel_questions = TOPIC_CATEGORIES[selected]
+            remaining = [(j, q) for j, q in enumerate(sel_questions) if q not in asked]
+            # Purge asked questions' chip state so Streamlit cannot retain
+            # a stale chip widget after the script stops rendering it.
+            for j, q in enumerate(sel_questions):
                 if q in asked:
-                    chip_key = f"chip_{conv}_{i}_{j}"
+                    chip_key = f"chip_{conv}_{selected}_{j}"
                     if chip_key in st.session_state:
                         del st.session_state[chip_key]
-            with cat_slots[i].container():
-                c_icon, c_exp = st.columns([1, 9], vertical_alignment="center")
-                with c_icon:
-                    st.markdown(
-                        f'<img src="data:image/png;base64,{_img_b64(icon_path)}" '
-                        f'alt="{name}" title="{name}" '
-                        f'style="width:120px;height:120px;'
-                        f'object-fit:contain;display:block;cursor:pointer;">',
-                        unsafe_allow_html=True,
-                    )
-                with c_exp:
-                    if remaining:
-                        # Only render the expander when there are unanswered
-                        # questions. When all questions have been asked we
-                        # render a plain caption instead, so the expander
-                        # widget (and any chip children Streamlit might
-                        # retain inside it) is fully removed from the tree.
-                        with st.expander(name, expanded=False):
-                            for j, q in remaining:
-                                st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
-                                if st.button(q, key=f"chip_{conv}_{i}_{j}",
-                                             use_container_width=True):
-                                    _queue_query(q)
-                                    st.rerun()
-                                st.markdown('</div>', unsafe_allow_html=True)
-                    else:
-                        st.caption(f"**{name}** — all questions in this topic asked.")
+            with drill_slot.container():
+                st.markdown(f"### {sel_name}")
+                if remaining:
+                    for j, q in remaining:
+                        st.markdown('<div class="chip-btn">', unsafe_allow_html=True)
+                        if st.button(q, key=f"chip_{conv}_{selected}_{j}",
+                                     use_container_width=True):
+                            _queue_query(q)
+                            st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
+                else:
+                    st.caption("All questions in this topic asked.")
 
         if msgs or has_pending:
             with chat_slot.container(height=520):
