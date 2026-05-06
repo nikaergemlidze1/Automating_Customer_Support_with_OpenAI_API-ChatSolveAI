@@ -1,14 +1,14 @@
 name: Keep-alive ping
 
 # Pings both the Streamlit Cloud frontend and the Hugging Face Spaces
-# backend every 10 minutes so the free-tier hosts don't go to sleep.
-# Without this, the first visit after ~30 minutes of idle takes ~30s of
+# backend every 5 minutes so the free-tier hosts don't go to sleep.
+# Without this, the first visit after a long idle takes ~30s of
 # cold-start, which is a poor first impression for recruiters / demos.
 
 on:
   schedule:
-    # every 10 minutes (cron has a minimum granularity of 5)
-    - cron: "*/10 * * * *"
+    # every 5 minutes (GitHub Actions cron's minimum granularity)
+    - cron: "*/5 * * * *"
   workflow_dispatch:  # allow manual run from the Actions tab
 
 jobs:
@@ -22,7 +22,7 @@ jobs:
           # We don't fail the workflow on a transient hiccup (|| true),
           # but we do log the HTTP code so failed pings are visible.
           STATUS=$(curl -L -s -o /dev/null -w "%{http_code}" -m 30 \
-            "https://chatsolveai.streamlit.app/" || echo "000")
+            "https://chatsolveai-nika.streamlit.app/" || echo "000")
           echo "Streamlit Cloud → HTTP $STATUS"
 
       - name: Ping Hugging Face Spaces backend (/health)
