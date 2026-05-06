@@ -556,12 +556,20 @@ def render_admin(sidebar_slot, main_slot):
         left, right = st.columns(2)
         with left:
             st.subheader("Daily Queries")
-            if timeseries: st.bar_chart(timeseries, x="date", y="count")
-            else: st.info("No data yet.")
+            # Guard against all-zero counts: Vega emits 'Infinite extent'
+            # warnings when every count value is 0 because it can't compute
+            # a non-degenerate scale. Only render the chart if at least one
+            # row has a non-zero count.
+            if timeseries and any(r.get("count", 0) > 0 for r in timeseries):
+                st.bar_chart(timeseries, x="date", y="count")
+            else:
+                st.info("No data yet.")
         with right:
             st.subheader("Intent Distribution")
-            if intents: st.bar_chart(intents, x="intent", y="count")
-            else: st.info("No data yet.")
+            if intents and any(r.get("count", 0) > 0 for r in intents):
+                st.bar_chart(intents, x="intent", y="count")
+            else:
+                st.info("No data yet.")
         st.divider()
         tab1, tab2 = st.tabs(["Top Questions", "Recent Sessions"])
         with tab1:
