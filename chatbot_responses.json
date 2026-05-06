@@ -124,11 +124,5 @@
     "retrieved_response": "To get a refund, request one within 30 days of purchase with a valid receipt — eligible orders qualify under our refund policy.",
     "confidence_score": 0.93,
     "timestamp": "2026-05-06T00:00:00Z"
-  },
-  {
-    "query_text": "How long does delivery take?",
-    "retrieved_response": "Delivery takes 5-7 business days for standard shipping.",
-    "confidence_score": 0.93,
-    "timestamp": "2026-05-06T00:00:00Z"
   }
 ]
