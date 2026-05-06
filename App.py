@@ -73,6 +73,12 @@ st.markdown("""<style>
 .chip-btn button:hover{background:rgba(79,139,249,.15)!important;border-color:#4F8BF9!important;transform:translateX(2px)}
 [class*='st-key-iconbtn_'] button{transition:background-color .15s ease,border-color .15s ease,transform .15s ease!important}
 [class*='st-key-iconbtn_'] button:hover{transform:translateY(-2px)}
+[data-testid='stButton'] button,[data-testid='stDownloadButton'] button{transition:background-color .15s ease,border-color .15s ease,transform .12s ease,box-shadow .15s ease!important}
+[class*='st-key-btn_new_chat'] button:hover,[data-testid='stDownloadButton'] button:hover,[class*='st-key-up_'] button:hover,[class*='st-key-down_'] button:hover,[class*='st-key-regen_'] button:hover,[class*='st-key-admin_signout'] button:hover{transform:translateY(-1px) scale(1.02);box-shadow:0 4px 12px rgba(79,139,249,.18);border-color:#4F8BF9!important}
+[class*='st-key-btn_new_chat'] button:active,[data-testid='stDownloadButton'] button:active,[class*='st-key-up_'] button:active,[class*='st-key-down_'] button:active,[class*='st-key-regen_'] button:active{transform:translateY(0) scale(.98)}
+[data-testid='stChatInput'] textarea,[data-baseweb='input'] input{transition:border-color .15s ease,box-shadow .15s ease!important}
+[data-testid='stChatInput']:focus-within,[data-baseweb='input']:focus-within{box-shadow:0 0 0 2px rgba(79,139,249,.32)!important;border-color:#4F8BF9!important;border-radius:12px!important}
+[data-testid='stChatInput'] textarea:focus,[data-baseweb='input'] input:focus{outline:none!important}
 .drill-section{overflow:hidden;animation:drillExpand .45s cubic-bezier(.16,1,.3,1) both}
 @keyframes drillExpand{0%{max-height:0;opacity:0;transform:translateY(-8px) scale(.98)}60%{opacity:.85}100%{max-height:1200px;opacity:1;transform:translateY(0) scale(1)}}
 .chip-btn{animation:chipFadeIn .32s cubic-bezier(.16,1,.3,1) both;opacity:0}
@@ -92,7 +98,7 @@ st.markdown("""<style>
 @keyframes pageEntryFade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .sidebar-entry [data-testid='stSidebar']{animation:sidebarSlide .5s cubic-bezier(.16,1,.3,1) both}
 @keyframes sidebarSlide{from{transform:translateX(-30px);opacity:0}to{transform:translateX(0);opacity:1}}
-@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn,[data-testid='stChatMessage'],.typing-dots span,.pill,.page-entry-1,.page-entry-2,.page-entry-3,.sidebar-entry [data-testid='stSidebar']{animation:none!important;opacity:1!important;transform:none!important}}
+@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn,[data-testid='stChatMessage'],.typing-dots span,.pill,.page-entry-1,.page-entry-2,.page-entry-3,.sidebar-entry [data-testid='stSidebar'],[data-testid='stButton'] button,[data-testid='stDownloadButton'] button{animation:none!important;opacity:1!important;transform:none!important;transition:none!important}}
 #MainMenu,footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
