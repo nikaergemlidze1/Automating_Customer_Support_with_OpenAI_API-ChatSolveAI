@@ -41,6 +41,7 @@ pymongo>=4.7.0,<5.0
 
 # ── Web app (Streamlit frontend) ──────────────────────────────────────────────
 streamlit>=1.39.0,<2.0
+streamlit-lottie>=0.0.5,<1.0
 requests>=2.31.0,<3.0
 
 # ── Visualisation (notebook only) ─────────────────────────────────────────────

@@ -14,6 +14,23 @@ import requests, streamlit as st
 import streamlit.components.v1 as components
 from dotenv import load_dotenv
 
+# streamlit-lottie is optional polish; if the package isn't installed
+# the empty-state animation is silently skipped instead of crashing.
+try:
+    from streamlit_lottie import st_lottie
+    _HAS_LOTTIE = True
+except Exception:
+    st_lottie = None  # type: ignore
+    _HAS_LOTTIE = False
+
+@lru_cache(maxsize=4)
+def _load_lottie(path: str, mtime: float):
+    with open(path, "r") as f:
+        return json.load(f)
+
+def _lottie_data(path: str):
+    return _load_lottie(path, os.path.getmtime(path))
+
 @lru_cache(maxsize=16)
 def _img_b64_cached(path: str, mtime: float) -> str:
     with open(path, "rb") as f:
@@ -511,10 +528,46 @@ def render_chat(sidebar_slot, main_slot):
                                 del st.session_state[k]
                     st.rerun()
 
-        # Drill and chat slots are reserved AFTER the icon row so their
-        # rendered DOM lands BELOW the icons (Streamlit places elements
-        # in script-call order). Force-clearing each rerun prevents
-        # stale chip / chat-bubble DOM from leaking across reruns.
+        # Empty-state Lottie illustration: only renders on the landing
+        # state (no chat yet, no topic selected). Disappears the moment
+        # the user engages so it never competes with the actual task.
+        # Wrapped in try/except so a missing JSON or absent package
+        # silently no-ops instead of breaking the page.
+        empty_state = (not msgs) and (selected is None) and (not has_pending)
+        empty_state_slot = st.empty()
+        empty_state_slot.empty()
+        if empty_state and _HAS_LOTTIE:
+            try:
+                lottie_path = os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)),
+                    "logo", "empty_state.json",
+                )
+                anim = _lottie_data(lottie_path)
+                with empty_state_slot.container():
+                    cols = st.columns([1, 2, 1])
+                    with cols[1]:
+                        st_lottie(
+                            anim,
+                            height=220,
+                            loop=True,
+                            quality="high",
+                            speed=1.0,
+                            key="empty_state_lottie",
+                        )
+                        st.markdown(
+                            "<div style='text-align:center;color:#7a8190;"
+                            "font-size:.85rem;margin-top:-10px'>"
+                            "Pick a category above or type a question below to get started"
+                            "</div>",
+                            unsafe_allow_html=True,
+                        )
+            except Exception:
+                pass
+
+        # Drill and chat slots are reserved AFTER the icon row (and the
+        # empty-state slot) so their rendered DOM lands BELOW. Force-
+        # clearing each rerun prevents stale chip / chat-bubble DOM
+        # from leaking across reruns.
         drill_slot = st.empty()
         chat_slot = st.empty()
         drill_slot.empty()
