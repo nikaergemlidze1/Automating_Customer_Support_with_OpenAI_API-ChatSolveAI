@@ -100,8 +100,12 @@ st.markdown("""<style>
 @keyframes drillExpand{0%{max-height:0;opacity:0;transform:translateY(-8px) scale(.98)}60%{opacity:.85}100%{max-height:1200px;opacity:1;transform:translateY(0) scale(1)}}
 .chip-btn{animation:chipFadeIn .32s cubic-bezier(.16,1,.3,1) both;opacity:0}
 @keyframes chipFadeIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-[data-testid='stChatMessage']{animation:bubbleFadeIn .28s cubic-bezier(.16,1,.3,1) both}
-@keyframes bubbleFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+[data-testid='stChatMessage']{border-radius:14px!important;padding:12px 14px!important;margin-bottom:10px!important;box-shadow:0 4px 18px rgba(0,0,0,.25);transition:box-shadow .2s ease,transform .2s ease}
+[data-testid='stChatMessage']:hover{box-shadow:0 6px 22px rgba(0,0,0,.32)}
+[class*='st-key-chatmsg-user'] [data-testid='stChatMessage']{background:rgba(79,139,249,.08)!important;border:1px solid rgba(79,139,249,.18)!important;border-left:3px solid #4F8BF9!important;animation:bubbleInRight .35s cubic-bezier(.16,1,.3,1) both}
+[class*='st-key-chatmsg-asst'] [data-testid='stChatMessage']{background:rgba(255,255,255,.025)!important;border:1px solid rgba(255,255,255,.06)!important;border-left:3px solid rgba(255,255,255,.12)!important;animation:bubbleInLeft .35s cubic-bezier(.16,1,.3,1) both}
+@keyframes bubbleInRight{from{opacity:0;transform:translateX(14px) translateY(8px)}to{opacity:1;transform:translateX(0) translateY(0)}}
+@keyframes bubbleInLeft{from{opacity:0;transform:translateX(-14px) translateY(8px)}to{opacity:1;transform:translateX(0) translateY(0)}}
 .typing-dots{display:inline-flex;gap:5px;padding:6px 2px;align-items:center}
 .typing-dots span{width:7px;height:7px;border-radius:50%;background:#9ea3b0;display:inline-block;animation:typingBounce 1.1s infinite ease-in-out}
 .typing-dots span:nth-child(2){animation-delay:.18s}
@@ -115,7 +119,7 @@ st.markdown("""<style>
 @keyframes pageEntryFade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .sidebar-entry [data-testid='stSidebar']{animation:sidebarSlide .5s cubic-bezier(.16,1,.3,1) both}
 @keyframes sidebarSlide{from{transform:translateX(-30px);opacity:0}to{transform:translateX(0);opacity:1}}
-@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn,[data-testid='stChatMessage'],.typing-dots span,.pill,.page-entry-1,.page-entry-2,.page-entry-3,.sidebar-entry [data-testid='stSidebar'],[data-testid='stButton'] button,[data-testid='stDownloadButton'] button{animation:none!important;opacity:1!important;transform:none!important;transition:none!important}}
+@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn,[data-testid='stChatMessage'],[class*='st-key-chatmsg-user'] [data-testid='stChatMessage'],[class*='st-key-chatmsg-asst'] [data-testid='stChatMessage'],.typing-dots span,.pill,.page-entry-1,.page-entry-2,.page-entry-3,.sidebar-entry [data-testid='stSidebar'],[data-testid='stButton'] button,[data-testid='stDownloadButton'] button{animation:none!important;opacity:1!important;transform:none!important;transition:none!important}}
 #MainMenu,footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
@@ -352,19 +356,25 @@ def submit_query(query, append_user=True):
     if not query or not str(query).strip(): return False
     if append_user:
         st.session_state.messages.append({"role":"user","content":query})
-    with st.chat_message("user",avatar=USER_AVATAR):
-        st.markdown(query)
-    with st.chat_message("assistant",avatar=ASSISTANT_AVATAR):
-        box = st.empty()
-        # Typing indicator until the first token arrives. call_chat_stream
-        # overwrites this placeholder with streaming text on the first
-        # output_box.markdown(...) call, so the dots vanish smoothly.
-        box.markdown(
-            '<div class="typing-dots"><span></span><span></span><span></span></div>',
-            unsafe_allow_html=True,
-        )
-        result = call_chat_stream(query,box) if USE_STREAMING else call_chat(query)
-        if not USE_STREAMING and result: box.markdown(result.get("answer",""))
+    # Wrap each chat_message in a keyed st.container so the role is
+    # baked into the wrapper class (st-key-chatmsg-user / -asst).
+    # CSS targets these via [class*=...] for role-specific bubble
+    # styling without relying on Streamlit's internal class names.
+    with st.container(key="chatmsg-user-pending"):
+        with st.chat_message("user",avatar=USER_AVATAR):
+            st.markdown(query)
+    with st.container(key="chatmsg-asst-pending"):
+        with st.chat_message("assistant",avatar=ASSISTANT_AVATAR):
+            box = st.empty()
+            # Typing indicator until the first token arrives. call_chat_stream
+            # overwrites this placeholder with streaming text on the first
+            # output_box.markdown(...) call, so the dots vanish smoothly.
+            box.markdown(
+                '<div class="typing-dots"><span></span><span></span><span></span></div>',
+                unsafe_allow_html=True,
+            )
+            result = call_chat_stream(query,box) if USE_STREAMING else call_chat(query)
+            if not USE_STREAMING and result: box.markdown(result.get("answer",""))
     if not result:
         if append_user and st.session_state.messages and st.session_state.messages[-1]["role"]=="user" and st.session_state.messages[-1]["content"]==query:
             st.session_state.messages.pop()
@@ -615,25 +625,31 @@ def render_chat(sidebar_slot, main_slot):
             with chat_slot.container(height=520):
                 for idx, msg in enumerate(msgs):
                     avatar = USER_AVATAR if msg["role"] == "user" else ASSISTANT_AVATAR
-                    with st.chat_message(msg["role"], avatar=avatar):
-                        st.markdown(msg["content"])
-                        if msg["role"] == "assistant":
-                            render_meta(msg.get("meta", {}))
-                            render_sources(msg.get("sources", []))
-                            fb = f"fb_{conv}_{idx}"
-                            if st.session_state.get(fb) is None:
-                                c1, c2, _ = st.columns([1, 1, 8])
-                                with c1:
-                                    if st.button("👍", key=f"up_{conv}_{idx}"):
-                                        _record_feedback(idx, "up"); st.rerun()
-                                with c2:
-                                    if st.button("👎", key=f"down_{conv}_{idx}"):
-                                        _record_feedback(idx, "down"); st.rerun()
-                            else:
-                                rating = st.session_state[fb]
-                                st.caption(f"You rated: {'👍' if rating == 'up' else '👎'}")
-                                if rating == "down" and st.button("Regenerate", key=f"regen_{conv}_{idx}"):
-                                    _queue_regenerate(idx); del st.session_state[fb]; st.rerun()
+                    role_short = "user" if msg["role"] == "user" else "asst"
+                    # Keyed wrapper container so the role ('user' / 'asst')
+                    # ends up in the wrapper's CSS class (st-key-chatmsg-...);
+                    # the global stylesheet uses that to apply per-role
+                    # bubble background, border, and slide-in direction.
+                    with st.container(key=f"chatmsg-{role_short}-{conv}-{idx}"):
+                        with st.chat_message(msg["role"], avatar=avatar):
+                            st.markdown(msg["content"])
+                            if msg["role"] == "assistant":
+                                render_meta(msg.get("meta", {}))
+                                render_sources(msg.get("sources", []))
+                                fb = f"fb_{conv}_{idx}"
+                                if st.session_state.get(fb) is None:
+                                    c1, c2, _ = st.columns([1, 1, 8])
+                                    with c1:
+                                        if st.button("👍", key=f"up_{conv}_{idx}"):
+                                            _record_feedback(idx, "up"); st.rerun()
+                                    with c2:
+                                        if st.button("👎", key=f"down_{conv}_{idx}"):
+                                            _record_feedback(idx, "down"); st.rerun()
+                                else:
+                                    rating = st.session_state[fb]
+                                    st.caption(f"You rated: {'👍' if rating == 'up' else '👎'}")
+                                    if rating == "down" and st.button("Regenerate", key=f"regen_{conv}_{idx}"):
+                                        _queue_regenerate(idx); del st.session_state[fb]; st.rerun()
 
                 if has_pending:
                     if healthy:
