@@ -94,8 +94,15 @@ st.markdown("""<style>
 [class*='st-key-btn_new_chat'] button:hover,[data-testid='stDownloadButton'] button:hover,[class*='st-key-up_'] button:hover,[class*='st-key-down_'] button:hover,[class*='st-key-regen_'] button:hover,[class*='st-key-admin_signout'] button:hover{transform:translateY(-1px) scale(1.02);box-shadow:0 4px 12px rgba(79,139,249,.18);border-color:#4F8BF9!important}
 [class*='st-key-btn_new_chat'] button:active,[data-testid='stDownloadButton'] button:active,[class*='st-key-up_'] button:active,[class*='st-key-down_'] button:active,[class*='st-key-regen_'] button:active{transform:translateY(0) scale(.98)}
 [data-testid='stChatInput'] textarea,[data-baseweb='input'] input{transition:border-color .15s ease,box-shadow .15s ease!important}
-[data-testid='stChatInput']:focus-within,[data-baseweb='input']:focus-within{box-shadow:0 0 0 2px rgba(79,139,249,.32)!important;border-color:#4F8BF9!important;border-radius:12px!important}
+[data-testid='stChatInput']:focus-within,[data-baseweb='input']:focus-within{box-shadow:0 0 0 2px rgba(79,139,249,.32)!important;border-color:#4F8BF9!important;border-radius:14px!important}
 [data-testid='stChatInput'] textarea:focus,[data-baseweb='input'] input:focus{outline:none!important}
+[data-testid='stMain'] .block-container{max-width:1100px!important;margin-left:auto!important;margin-right:auto!important}
+[data-testid='stChatInput']{border-radius:14px!important;border:1px solid rgba(255,255,255,.08)!important;background:rgba(22,26,35,.85)!important;transition:border-color .2s ease,box-shadow .2s ease!important;backdrop-filter:saturate(140%)}
+[data-testid='stChatInput'] textarea::placeholder{color:#6b7280!important;opacity:.85!important}
+[data-testid='stChatInput'] button{border-radius:10px!important;transition:background-color .15s ease,transform .12s ease!important}
+[data-testid='stChatInput'] button:hover{background:rgba(79,139,249,.22)!important;transform:translateY(-1px)}
+[data-testid='stChatInput'] button:active{transform:translateY(0) scale(.96)}
+@keyframes inputPulse{0%,100%{box-shadow:0 0 0 0 rgba(79,139,249,0)}50%{box-shadow:0 0 0 4px rgba(79,139,249,.20),0 0 18px rgba(79,139,249,.18)}}
 .drill-section{overflow:hidden;animation:drillExpand .45s cubic-bezier(.16,1,.3,1) both}
 @keyframes drillExpand{0%{max-height:0;opacity:0;transform:translateY(-8px) scale(.98)}60%{opacity:.85}100%{max-height:1200px;opacity:1;transform:translateY(0) scale(1)}}
 .chip-btn{animation:chipFadeIn .32s cubic-bezier(.16,1,.3,1) both;opacity:0}
@@ -119,7 +126,7 @@ st.markdown("""<style>
 @keyframes pageEntryFade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .sidebar-entry [data-testid='stSidebar']{animation:sidebarSlide .5s cubic-bezier(.16,1,.3,1) both}
 @keyframes sidebarSlide{from{transform:translateX(-30px);opacity:0}to{transform:translateX(0);opacity:1}}
-@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn,[data-testid='stChatMessage'],[class*='st-key-chatmsg-user'] [data-testid='stChatMessage'],[class*='st-key-chatmsg-asst'] [data-testid='stChatMessage'],.typing-dots span,.pill,.page-entry-1,.page-entry-2,.page-entry-3,.sidebar-entry [data-testid='stSidebar'],[data-testid='stButton'] button,[data-testid='stDownloadButton'] button{animation:none!important;opacity:1!important;transform:none!important;transition:none!important}}
+@media (prefers-reduced-motion: reduce){.drill-section,.chip-btn,[data-testid='stChatMessage'],[class*='st-key-chatmsg-user'] [data-testid='stChatMessage'],[class*='st-key-chatmsg-asst'] [data-testid='stChatMessage'],.typing-dots span,.pill,.page-entry-1,.page-entry-2,.page-entry-3,.sidebar-entry [data-testid='stSidebar'],[data-testid='stButton'] button,[data-testid='stDownloadButton'] button,[data-testid='stChatInput']{animation:none!important;opacity:1!important;transform:none!important;transition:none!important}}
 #MainMenu,footer{visibility:hidden}
 </style>""", unsafe_allow_html=True)
 
@@ -486,6 +493,17 @@ def render_chat(sidebar_slot, main_slot):
         msgs = st.session_state.messages
         asked = {m["content"] for m in msgs if m["role"] == "user"}
         has_pending = bool(st.session_state.pending_query)
+
+        # Pulse the chat input border while a query is in flight. The
+        # rule is injected only when has_pending is True; on the next
+        # rerun (response complete) the <style> tag is dropped and the
+        # animation stops. CSS-only state cue without JS.
+        if has_pending:
+            st.markdown(
+                "<style>[data-testid='stChatInput']{"
+                "animation:inputPulse 1.4s ease-in-out infinite}</style>",
+                unsafe_allow_html=True,
+            )
 
         # Greeting slot lives ABOVE the icon row, so reserve it first.
         # The icon row itself is static (4 fixed buttons with stable
