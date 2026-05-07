@@ -70,10 +70,18 @@ st.set_page_config(page_title="ChatSolveAI", page_icon="🤖", layout="wide",
 # ══════════════════════════════════════════════
 # CSS
 # ══════════════════════════════════════════════
-st.markdown("""<style>
-:root {--accent:#4F8BF9;--accent-2:#8E6BFF;}
-.hero-title{background:linear-gradient(90deg,var(--accent)0%,var(--accent-2)100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:800;font-size:2rem;margin-bottom:0.2rem}
-.hero-sub{color:#9ea3b0;margin-bottom:1.2rem}
+st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lexend:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root {--accent:#4F8BF9;--accent-2:#8E6BFF;--font-ui:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif;--font-display:'Lexend','Inter',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;}
+html,body,[data-testid='stApp'],[data-testid='stSidebar'],[data-testid='stChatInput'] textarea,[data-testid='stChatMessage'],.stMarkdown,.stButton button,.stDownloadButton button,[class*='st-key-iconbtn_'] button,.chip-btn button,.stTextInput input,.stSelectbox div[role='combobox']{font-family:var(--font-ui)!important;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+.hero-title,h1,h2,h3,.drill-section h3,[data-testid='stChatMessage'] h1,[data-testid='stChatMessage'] h2,[data-testid='stChatMessage'] h3{font-family:var(--font-display)!important;letter-spacing:-.01em}
+code,pre,kbd,samp,tt,[class*='monospace'],[data-testid='stCode']{font-family:'JetBrains Mono','SF Mono',Monaco,Consolas,'Roboto Mono',monospace!important}
+body{font-weight:400}
+.hero-title{background:linear-gradient(90deg,var(--accent)0%,var(--accent-2)100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:700;font-size:2.1rem;letter-spacing:-.02em;margin-bottom:0.2rem}
+.hero-sub{color:#9ea3b0;margin-bottom:1.2rem;font-weight:400}
 .pill{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;font-size:0.72rem;font-weight:600;background:rgba(79,139,249,.12);color:var(--accent);margin-right:6px}
 .pill-green{background:rgba(76,175,80,.15);color:#81c784}
 .pill-amber{background:rgba(255,152,0,.15);color:#ffb74d}
